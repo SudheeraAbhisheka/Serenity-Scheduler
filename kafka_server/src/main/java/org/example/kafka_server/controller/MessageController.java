@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.example.KeyValueObject;
 
 @RestController
 public class MessageController {
@@ -16,8 +17,8 @@ public class MessageController {
     }
 
     @PostMapping("/send-message")
-    public String sendMessage(@RequestBody MessageTemplate messageTemplate) {
-        kafkaProducerService.sendMessage("my-topic", messageTemplate);
+    public String sendMessage(@RequestBody KeyValueObject keyValueObject) {
+        kafkaProducerService.sendMessage("my-topic", keyValueObject);
         return "Message sent!";
     }
 }

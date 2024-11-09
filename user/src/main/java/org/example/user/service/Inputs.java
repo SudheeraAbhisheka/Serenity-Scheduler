@@ -1,11 +1,17 @@
 package org.example.user.service;
 
-import org.example.user.MessageTemplate;
+import com.example.KeyValueObject;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class Inputs {
@@ -14,33 +20,83 @@ public class Inputs {
     public Inputs(RestTemplate restTemplate){
         this.restTemplate = restTemplate;
         sendMessage(takingInputs());
+
+//        timedHelloWorld();
     }
 
-    public MessageTemplate takingInputs(){
+    public KeyValueObject takingInputs(){
         Scanner scanner = new Scanner(System.in);
 
         System.out.println("Type 1 & press Enter to upload");
         scanner.nextInt();
 
-        MessageTemplate input1 = new MessageTemplate("4k video", 8, new int[]{5, 3, 2});
-        MessageTemplate input2 = new MessageTemplate("1080p video", 4, new int[]{2, 4, 1});
 
         System.out.println("Done");
 
-        return input1;
+        return new KeyValueObject(String.valueOf(System.currentTimeMillis()), 8);
 
     }
 
-    private void sendMessage(MessageTemplate messageTemplate) {
+    public void timedHelloWorld() {
+        Random random = new Random();
+        ArrayList<Integer> randomSeconds = new ArrayList<>();
+
+        while (randomSeconds.size() < 3) {
+            int num = random.nextInt(60);
+            if (!randomSeconds.contains(num)) {
+                randomSeconds.add(num);
+            }
+        }
+
+        Collections.sort(randomSeconds);
+        System.out.println("Random seconds (in ascending order): " + randomSeconds);
+
+        long startTime = System.currentTimeMillis();
+
+        for (int seconds : randomSeconds) {
+            long waitTime = (seconds * 1000) - (System.currentTimeMillis() - startTime);
+
+            if (waitTime > 0) {
+                try {
+                    Thread.sleep(waitTime);
+                } catch (InterruptedException e) {
+                    System.err.println("The thread was interrupted while waiting.");
+                    Thread.currentThread().interrupt(); // Restore the interrupted status
+                    return;
+                }
+            }
+
+            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+            int iterationTime = 4 + random.nextInt(2);;
+
+            scheduler.schedule(() -> {
+                long printEndTime = System.currentTimeMillis() + iterationTime * 1000;
+                while (System.currentTimeMillis() < printEndTime) {
+                    System.out.println("Hello world " + seconds);
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        System.err.println("Interrupted during print loop");
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }, seconds, TimeUnit.SECONDS);
+
+            scheduler.shutdown();
+
+        }
+    }
+
+
+    private void sendMessage(KeyValueObject keyValueObject) {
         String url = "http://localhost:8080/send-message";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // Create an HttpEntity with the Template object and JSON headers
-        HttpEntity<MessageTemplate> request = new HttpEntity<>(messageTemplate, headers);
+        HttpEntity<KeyValueObject> request = new HttpEntity<>(keyValueObject, headers);
 
         try {
-            // Send the request and capture the response
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
             if (response.getStatusCode().is2xxSuccessful()) {
                 System.out.println("Message sent successfully: " + response.getBody());
