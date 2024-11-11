@@ -7,11 +7,11 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.Scanner;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class Inputs {
@@ -19,9 +19,9 @@ public class Inputs {
 
     public Inputs(RestTemplate restTemplate){
         this.restTemplate = restTemplate;
-        sendMessage(takingInputs());
+//        sendMessage(takingInputs());
 
-//        timedHelloWorld();
+        timedHelloWorld();
     }
 
     public KeyValueObject takingInputs(){
@@ -39,40 +39,51 @@ public class Inputs {
 
     public void timedHelloWorld() {
         Random random = new Random();
+        AtomicInteger value = new AtomicInteger();
+
+        //        ArrayList<Integer> randomSeconds = new ArrayList<>();
+//
+//        while (randomSeconds.size() < 3) {
+//            int num = random.nextInt(60);
+//            if (!randomSeconds.contains(num)) {
+//                randomSeconds.add(num);
+//            }
+//        }
+//
+//        Collections.sort(randomSeconds);
+
         ArrayList<Integer> randomSeconds = new ArrayList<>();
+        randomSeconds.add(5);
+        randomSeconds.add(5);
+        randomSeconds.add(5);
 
-        while (randomSeconds.size() < 3) {
-            int num = random.nextInt(60);
-            if (!randomSeconds.contains(num)) {
-                randomSeconds.add(num);
-            }
-        }
-
-        Collections.sort(randomSeconds);
         System.out.println("Random seconds (in ascending order): " + randomSeconds);
 
-        long startTime = System.currentTimeMillis();
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(randomSeconds.size());
+        AtomicInteger sendMessageCount = new AtomicInteger(0);
 
         for (int seconds : randomSeconds) {
-            long waitTime = (seconds * 1000) - (System.currentTimeMillis() - startTime);
-
-            if (waitTime > 0) {
-                try {
-                    Thread.sleep(waitTime);
-                } catch (InterruptedException e) {
-                    System.err.println("The thread was interrupted while waiting.");
-                    Thread.currentThread().interrupt(); // Restore the interrupted status
-                    return;
-                }
-            }
-
-            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-            int iterationTime = 4 + random.nextInt(2);;
+            int iterationTime = 4 + random.nextInt(2);
 
             scheduler.schedule(() -> {
                 long printEndTime = System.currentTimeMillis() + iterationTime * 1000;
                 while (System.currentTimeMillis() < printEndTime) {
-                    System.out.println("Hello world " + seconds);
+                    System.out.println("Hello world " + seconds + " from thread " + Thread.currentThread().getId());
+                    value.set(1 + random.nextInt(21));
+
+                    if(value.get() <= 10){
+                        sendMessage_topic_1to10(new KeyValueObject(
+                                String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
+                                value.get()));
+                    }else{
+                        sendMessage_topic_11to21(new KeyValueObject(
+                                String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
+                                value.get()));
+                    }
+
+                    sendMessageCount.incrementAndGet();
+
+
                     try {
                         Thread.sleep(100);
                     } catch (InterruptedException e) {
@@ -82,15 +93,21 @@ public class Inputs {
                     }
                 }
             }, seconds, TimeUnit.SECONDS);
+        }
 
-            scheduler.shutdown();
-
+        scheduler.shutdown();
+        try {
+            scheduler.awaitTermination(20, TimeUnit.SECONDS);
+            System.out.println("sendMessage was called " + sendMessageCount.get() + " times.");
+        } catch (InterruptedException e) {
+            System.err.println("Scheduler interrupted during awaitTermination.");
         }
     }
 
 
-    private void sendMessage(KeyValueObject keyValueObject) {
-        String url = "http://localhost:8080/send-message";
+
+    private void sendMessage_topic_1to10(KeyValueObject keyValueObject) {
+        String url = "http://localhost:8080/send-message/topic_1-10";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -108,4 +125,26 @@ public class Inputs {
             e.printStackTrace();
         }
     }
+
+    private void sendMessage_topic_11to21(KeyValueObject keyValueObject) {
+        String url = "http://localhost:8080/send-message/topic_11-21";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<KeyValueObject> request = new HttpEntity<>(keyValueObject, headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println("Message sent successfully: " + response.getBody());
+            } else {
+                System.out.println("Failed to send message. Status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            System.out.println("Exception occurred while sending message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
 }

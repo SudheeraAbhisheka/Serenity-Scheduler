@@ -3,12 +3,23 @@ package org.example.kafka_consumer.service;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 @Service
 public class KafkaConsumerService {
 
-    @KafkaListener(topics = "my-topic", groupId = "my-group")
-    public void listen(String message) {
-        System.out.println("Received message from Kafka: " + message);
+    AtomicInteger messageCount = new AtomicInteger(0);
+
+    @KafkaListener(topics = "topic_1-10", groupId = "my-group")
+    public void listen_1to10(String message) {
+        messageCount.incrementAndGet();
+        System.out.println("Received message #" + messageCount + " from Kafka: " + message);
+    }
+
+    @KafkaListener(topics = "topic_11-21", groupId = "my-group")
+    public void listen_11to21(String message) {
+        messageCount.incrementAndGet();
+        System.out.println("Received message #" + messageCount + " from Kafka: " + message);
     }
 
 //    public static void HelloWorldRepeater() {
