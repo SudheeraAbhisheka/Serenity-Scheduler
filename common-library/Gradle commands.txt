@@ -1,0 +1,4 @@
+C:\Users\abhis\.m2\repository
+gradle build
+gradle publishToMavenLocal
+gradle --refresh-dependencies

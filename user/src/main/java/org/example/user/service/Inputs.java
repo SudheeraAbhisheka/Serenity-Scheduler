@@ -16,30 +16,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class Inputs {
     private final RestTemplate restTemplate;
+    private final AtomicInteger sendMessageCount = new AtomicInteger(0);
 
     public Inputs(RestTemplate restTemplate){
         this.restTemplate = restTemplate;
-//        sendMessage(takingInputs());
 
-        timedHelloWorld();
+        startTimedHelloWorld();
     }
 
-    public KeyValueObject takingInputs(){
+    public void startTimedHelloWorld() {
         Scanner scanner = new Scanner(System.in);
+        String userChoice;
 
-        System.out.println("Type 1 & press Enter to upload");
-        scanner.nextInt();
+        System.out.println("Do you want to run timedHelloWorld? (yes/no)");
+        userChoice = scanner.nextLine();
 
+        while (userChoice.equalsIgnoreCase("yes")) {
+            timedHelloWorld();
+            System.out.println("Do you want to run timedHelloWorld again? (yes/no)");
+            userChoice = scanner.nextLine();
+        }
 
-        System.out.println("Done");
-
-        return new KeyValueObject(String.valueOf(System.currentTimeMillis()), 8);
-
-    }
-
-    public void timedHelloWorld() {
-        Random random = new Random();
-        AtomicInteger value = new AtomicInteger();
+        System.out.println("Program terminated.");
 
         //        ArrayList<Integer> randomSeconds = new ArrayList<>();
 //
@@ -51,6 +49,15 @@ public class Inputs {
 //        }
 //
 //        Collections.sort(randomSeconds);
+    }
+
+    public void timedHelloWorld() {
+        Random random = new Random();
+        AtomicInteger value = new AtomicInteger();
+
+        sendMessageCount.set(0);
+
+
 
         ArrayList<Integer> randomSeconds = new ArrayList<>();
         randomSeconds.add(5);
@@ -60,7 +67,7 @@ public class Inputs {
         System.out.println("Random seconds (in ascending order): " + randomSeconds);
 
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(randomSeconds.size());
-        AtomicInteger sendMessageCount = new AtomicInteger(0);
+
 
         for (int seconds : randomSeconds) {
             int iterationTime = 4 + random.nextInt(2);
@@ -68,17 +75,22 @@ public class Inputs {
             scheduler.schedule(() -> {
                 long printEndTime = System.currentTimeMillis() + iterationTime * 1000;
                 while (System.currentTimeMillis() < printEndTime) {
-                    System.out.println("Hello world " + seconds + " from thread " + Thread.currentThread().getId());
+                    System.out.println("Hello world " + seconds + " from thread " + Thread.currentThread().getName());
                     value.set(1 + random.nextInt(21));
 
                     if(value.get() <= 10){
                         sendMessage_topic_1to10(new KeyValueObject(
                                 String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
-                                value.get()));
+                                value.get(),
+                                1 + random.nextInt(11),
+                                false
+                                ));
                     }else{
                         sendMessage_topic_11to21(new KeyValueObject(
                                 String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
-                                value.get()));
+                                value.get(),
+                                1 + random.nextInt(11),
+                                false));
                     }
 
                     sendMessageCount.incrementAndGet();

@@ -1,0 +1,3 @@
+Once it comes through kafka it saved there.
+
+RabbitMQ ensures delevery with acknowlagemnt.

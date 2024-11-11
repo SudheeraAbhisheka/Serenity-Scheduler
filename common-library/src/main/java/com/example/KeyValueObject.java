@@ -11,12 +11,18 @@ public class KeyValueObject {
     private String key;
     @JsonProperty("value")
     private int value;
+    @JsonProperty("load")
+    private int load;
+    @JsonProperty("executed")
+    private boolean executed;
 
     public KeyValueObject() {
     }
 
-    public KeyValueObject(String key, int value) {
+    public KeyValueObject(String key, int value, int load, boolean executed) {
         this.key = key;
         this.value = value;
+        this.load = load;
+        this.executed = executed;
     }
 }
