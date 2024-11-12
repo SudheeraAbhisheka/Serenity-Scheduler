@@ -75,21 +75,22 @@ public class Inputs {
             scheduler.schedule(() -> {
                 long printEndTime = System.currentTimeMillis() + iterationTime * 1000;
                 while (System.currentTimeMillis() < printEndTime) {
-                    System.out.println("Hello world " + seconds + " from thread " + Thread.currentThread().getName());
-                    value.set(1 + random.nextInt(21));
+//                    System.out.println("Hello world " + seconds + " from thread " + Thread.currentThread().getName());
+                    value.set(1 + random.nextInt(20));
 
                     if(value.get() <= 10){
                         sendMessage_topic_1to10(new KeyValueObject(
                                 String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
                                 value.get(),
-                                1 + random.nextInt(11),
+                                1 + random.nextInt(10),
                                 false
                                 ));
+                        System.out.println("Hello world " + seconds + " from thread " + Thread.currentThread().getName());
                     }else{
                         sendMessage_topic_11to21(new KeyValueObject(
                                 String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
                                 value.get(),
-                                1 + random.nextInt(11),
+                                1 + random.nextInt(10),
                                 false));
                     }
 
