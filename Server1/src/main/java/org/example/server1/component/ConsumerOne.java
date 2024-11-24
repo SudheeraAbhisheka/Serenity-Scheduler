@@ -16,7 +16,6 @@ public class ConsumerOne {
 
     @RabbitListener(queues = RabbitMQConfig.CONSUMER_ONE_QUEUE)
     public void receiveMessageFromConsumerOneQueue(String message) {
-//        System.out.println("Consumer 1 received message: " + message);
 
         try {
             messageBlockingQueue1.put(message); // Using put to handle blocking behavior

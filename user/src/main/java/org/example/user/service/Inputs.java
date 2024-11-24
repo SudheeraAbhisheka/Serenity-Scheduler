@@ -39,7 +39,7 @@ public class Inputs {
 
         System.out.println("Program terminated.");
 
-        //        ArrayList<Integer> randomSeconds = new ArrayList<>();
+//        ArrayList<Integer> randomSeconds = new ArrayList<>();
 //
 //        while (randomSeconds.size() < 3) {
 //            int num = random.nextInt(60);

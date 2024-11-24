@@ -2,10 +2,13 @@ spring:
     application:
         name: kafka_consumer
     rabbitmq:
-        host: localhost
-        port: 5672
-        username: guest
-        password: guest
-
+        host: ${SPRING_RABBITMQ_HOST:localhost}
+        port: ${SPRING_RABBITMQ_PORT:5672}
+        username: ${SPRING_RABBITMQ_USERNAME:guest}
+        password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    kafka:
+        bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 server:
-    port: 8081
+    port: ${SERVER_PORT:8081}
+
+
