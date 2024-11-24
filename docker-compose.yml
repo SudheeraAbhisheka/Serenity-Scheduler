@@ -78,3 +78,11 @@ services:
       - SPRING_RABBITMQ_PASSWORD=guest
     depends_on:
       - rabbitmq
+
+  servers:
+    build:
+      context: ./servers
+      dockerfile: Dockerfile
+    container_name: servers
+    ports:
+      - "8084:8084"

@@ -4,37 +4,17 @@ import com.example.KeyValueObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.server1.component.ConsumerOne;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 public class ServerSimulator {
-    private final BlockingQueue<KeyValueObject> queueServer1 = new LinkedBlockingQueue<>(1);
-    private final BlockingQueue<KeyValueObject> queueServer2 = new LinkedBlockingQueue<>(1);
+
+    private final RestTemplate restTemplate;
 
     public ServerSimulator() {
-        new Thread(() -> {
-            while (true) {
-                ObjectMapper objectMapper = new ObjectMapper();
-                KeyValueObject keyValueObject;
-                String message;
-
-                try {
-                    message = ConsumerOne.getMessageBlockingQueue1().take();
-                    keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
-
-                    queueServer1.put(keyValueObject);
-
-                } catch (InterruptedException | JsonProcessingException e) {
-                    throw new RuntimeException(e);
-                }
-
-            }
-        }).start();
+        this.restTemplate = new RestTemplate();
 
         new Thread(() -> {
             while (true) {
@@ -45,60 +25,51 @@ public class ServerSimulator {
                 try {
                     message = ConsumerOne.getMessageBlockingQueue1().take();
                     keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
-                    queueServer2.put(keyValueObject);
 
+                    sendToServer1(keyValueObject);
 
                 } catch (InterruptedException | JsonProcessingException e) {
                     throw new RuntimeException(e);
                 }
-
             }
         }).start();
 
         new Thread(() -> {
             while (true) {
-                serverSimulator1();
+                ObjectMapper objectMapper = new ObjectMapper();
+                KeyValueObject keyValueObject;
+                String message;
 
-            }
-        }).start();
+                try {
+                    message = ConsumerOne.getMessageBlockingQueue1().take();
+                    keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
 
-        new Thread(() -> {
-            while (true) {
-                serverSimulator2();
+                    sendToServer2(keyValueObject);
 
+                } catch (InterruptedException | JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }).start();
     }
 
-    private void serverSimulator1() {
-        int SLEEP_TIME = 2000;
-        KeyValueObject keyValueObject;
-
+    private void sendToServer1(KeyValueObject keyValueObject) {
         try {
-            keyValueObject = queueServer1.take();
-            keyValueObject.setExecuted(true);
-            Thread.sleep(SLEEP_TIME);
-            System.out.printf("*Server 1 (queue size: %s) %s\n", queueServer1.size(), keyValueObject);
+            String url = "http://servers:8084/api/server1";
+            ResponseEntity<String> response = restTemplate.postForEntity(url, keyValueObject, String.class);
 
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            System.err.printf("Error sending to Server 1: %s\n", e.getMessage());
         }
     }
 
-    private void serverSimulator2() {
-        int SLEEP_TIME = 1000;
-        KeyValueObject keyValueObject;
-
+    private void sendToServer2(KeyValueObject keyValueObject) {
         try {
-            keyValueObject = queueServer2.take();
-            keyValueObject.setExecuted(true);
-            Thread.sleep(SLEEP_TIME);
-            System.out.printf("**Server 2 (queue size: %s) %s\n", queueServer2.size(), keyValueObject);
+            String url = "http://servers:8084/api/server2";
+            ResponseEntity<String> response = restTemplate.postForEntity(url, keyValueObject, String.class);
 
-
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
         }
     }
 }
-

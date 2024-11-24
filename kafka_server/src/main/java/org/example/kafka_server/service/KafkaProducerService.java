@@ -15,7 +15,6 @@ public class KafkaProducerService {
 
     public void sendMessage(String topic, KeyValueObject keyValueObject) {
         kafkaTemplate.send(topic, keyValueObject);
-        System.out.println("Message sent to Kafka topic: " + topic);
     }
 }
 

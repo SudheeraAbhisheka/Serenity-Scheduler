@@ -86,15 +86,17 @@ public class Inputs {
                                 false
                                 ));
                         System.out.println("Hello world " + seconds + " from thread " + Thread.currentThread().getName());
+
+                        sendMessageCount.incrementAndGet();
                     }else{
-                        sendMessage_topic_11to21(new KeyValueObject(
-                                String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
-                                value.get(),
-                                1 + random.nextInt(10),
-                                false));
+//                        sendMessage_topic_11to21(new KeyValueObject(
+//                                String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
+//                                value.get(),
+//                                1 + random.nextInt(10),
+//                                false));
                     }
 
-                    sendMessageCount.incrementAndGet();
+
 
 
                     try {
