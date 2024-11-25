@@ -38,7 +38,7 @@ public class KafkaConsumerService {
 
     }
 
-    @KafkaListener(topics = "topic_11-21", groupId = "my-group")
+    @KafkaListener(topics = "topic_11-20", groupId = "my-group")
     public void listen_11to21(String message) {
         String routingKey = "consumer.two";
         rabbitTemplate.convertAndSend(RabbitMQConfig.DIRECT_EXCHANGE, routingKey, message);

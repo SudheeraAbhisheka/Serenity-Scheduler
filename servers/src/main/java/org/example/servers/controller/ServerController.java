@@ -35,7 +35,6 @@ public class ServerController {
     public ResponseEntity<String> handleServer2(@RequestBody KeyValueObject keyValueObject) {
         try {
             serverSimulator.queueServer2.put(keyValueObject);
-            System.out.printf("Received at Server 2: %s\n", keyValueObject);
 
             return ResponseEntity.status(HttpStatus.OK).body("Data processed by Server 2");
         } catch (Exception e) {

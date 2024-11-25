@@ -21,9 +21,9 @@ public class MessageController {
         return "Message sent!";
     }
 
-    @PostMapping("/send-message/topic_11-21")
+    @PostMapping("/send-message/topic_11-20")
     public String sendMessage11_21(@RequestBody KeyValueObject keyValueObject) {
-        kafkaProducerService.sendMessage("topic_11-21", keyValueObject);
+        kafkaProducerService.sendMessage("topic_11-20", keyValueObject);
         return "Message sent!";
     }
 }

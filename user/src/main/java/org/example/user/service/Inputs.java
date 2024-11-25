@@ -89,7 +89,7 @@ public class Inputs {
 
                         sendMessageCount.incrementAndGet();
                     }else{
-//                        sendMessage_topic_11to21(new KeyValueObject(
+//                        sendMessage_topic_11to20(new KeyValueObject(
 //                                String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
 //                                value.get(),
 //                                1 + random.nextInt(10),
@@ -141,8 +141,8 @@ public class Inputs {
         }
     }
 
-    private void sendMessage_topic_11to21(KeyValueObject keyValueObject) {
-        String url = "http://localhost:8080/send-message/topic_11-21";
+    private void sendMessage_topic_11to20(KeyValueObject keyValueObject) {
+        String url = "http://localhost:8080/send-message/topic_11-20";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
