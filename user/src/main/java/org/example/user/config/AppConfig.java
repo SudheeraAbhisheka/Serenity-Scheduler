@@ -14,4 +14,9 @@ public class AppConfig {
         restTemplate.getMessageConverters().add(new MappingJackson2HttpMessageConverter());
         return restTemplate;
     }
+
+    @Bean
+    public String algorithm() {
+        return "someAlgorithmValue";
+    }
 }

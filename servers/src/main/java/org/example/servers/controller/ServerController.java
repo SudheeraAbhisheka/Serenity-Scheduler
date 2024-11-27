@@ -13,7 +13,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 @RestController
 @RequestMapping("/api")
 public class ServerController {
-    private ServerSimulator serverSimulator;
+    private final ServerSimulator serverSimulator;
 
     public ServerController(ServerSimulator serverSimulator) {
         this.serverSimulator = serverSimulator;
@@ -22,7 +22,7 @@ public class ServerController {
     @PostMapping("/server1")
     public ResponseEntity<String> handleServer1(@RequestBody KeyValueObject keyValueObject) {
         try {
-            serverSimulator.queueServer1.put(keyValueObject);
+            serverSimulator.getQueueServer1().put(keyValueObject);
 
             return ResponseEntity.status(HttpStatus.OK).body("Data processed by Server 1");
         } catch (Exception e) {
@@ -34,7 +34,8 @@ public class ServerController {
     @PostMapping("/server2")
     public ResponseEntity<String> handleServer2(@RequestBody KeyValueObject keyValueObject) {
         try {
-            serverSimulator.queueServer2.put(keyValueObject);
+//            serverSimulator.putEntryToQueueServer2(keyValueObject);
+            serverSimulator.getQueueServer2().put(keyValueObject);
 
             return ResponseEntity.status(HttpStatus.OK).body("Data processed by Server 2");
         } catch (Exception e) {

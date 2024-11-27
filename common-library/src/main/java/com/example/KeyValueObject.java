@@ -7,22 +7,20 @@ import lombok.Data;
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class KeyValueObject {
-    @JsonProperty("key")
-    private String key;
-    @JsonProperty("value")
-    private int value;
-    @JsonProperty("load")
-    private int load;
-    @JsonProperty("executed")
-    private boolean executed;
+    @JsonProperty("key") private String key;
+    @JsonProperty("value") private int value;
+    @JsonProperty("weight") private int weight;
+    @JsonProperty("executed") private boolean executed;
+    @JsonProperty("priority") private int priority;
 
     public KeyValueObject() {
     }
 
-    public KeyValueObject(String key, int value, int load, boolean executed) {
+    public KeyValueObject(String key, int value, int weight, boolean executed, int priority) {
         this.key = key;
         this.value = value;
-        this.load = load;
+        this.weight = weight;
         this.executed = executed;
+        this.priority = priority;
     }
 }

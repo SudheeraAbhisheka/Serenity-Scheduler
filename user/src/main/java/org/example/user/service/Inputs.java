@@ -18,8 +18,9 @@ public class Inputs {
     private final RestTemplate restTemplate;
     private final AtomicInteger sendMessageCount = new AtomicInteger(0);
 
-    public Inputs(RestTemplate restTemplate) {
+    public Inputs(RestTemplate restTemplate, String algorithm) {
         this.restTemplate = restTemplate;
+        setAlgorithm(algorithm);
     }
 
     public void runTimedHelloWorld(TextArea outputArea){
@@ -54,14 +55,10 @@ public class Inputs {
                                 String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
                                 value.get(),
                                 1 + random.nextInt(10),
-                                false
+                                false,
+                                1 + random.nextInt(3)
                         );
                         sendMessage_topic_1to10(keyValueObject);
-//                        Platform.runLater(() -> outputArea.appendText(
-//                                " from thread " + Thread.currentThread().getName() + "\n" + keyValueObject + "\n"
-//                        ));
-//                        outputArea.appendText(" from thread " + Thread.currentThread().getName() + "\n"
-//                        + keyValueObject + "\n");
                         messageQueue.add("From thread " + Thread.currentThread().getName() + "\n" + keyValueObject + "\n");
                         sendMessageCount.incrementAndGet();
                     } else {
@@ -93,8 +90,7 @@ public class Inputs {
                     throw new RuntimeException(e);
                 }
                 String finalMessage1 = finalMessage;
-                outputArea.appendText(finalMessage1);
-//                Platform.runLater(() -> outputArea.appendText(finalMessage1));
+                Platform.runLater(() -> outputArea.appendText(finalMessage1));
 
             }
         }).start();
@@ -102,9 +98,29 @@ public class Inputs {
         scheduler.shutdown();
         try {
             scheduler.awaitTermination(20, TimeUnit.SECONDS);
-            outputArea.appendText("sendMessage was called " + sendMessageCount.get() + " times.\n");
+            Platform.runLater(() -> outputArea.appendText("sendMessage was called " + sendMessageCount.get() + " times.\n"));
         } catch (InterruptedException e) {
-            outputArea.appendText("Scheduler interrupted during awaitTermination.\n");
+            Platform.runLater(() -> outputArea.appendText("Scheduler interrupted during awaitTermination.\n"));
+        }
+    }
+
+    private void setAlgorithm(String algorithm){
+        String url = "http://localhost:8083/consumer-one/set-algorithm";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<String> request = new HttpEntity<>(algorithm, headers);
+
+        try {
+            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println("Algorithm set successfully.");
+            } else {
+                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
