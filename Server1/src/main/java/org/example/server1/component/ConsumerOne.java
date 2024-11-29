@@ -28,10 +28,16 @@ public class ConsumerOne {
                     Thread.currentThread().interrupt(); // Reset interrupt status
                     System.out.println("blockingQueueCompleteF was interrupted while adding a message to the queue.");
                 }
+
+                break;
             }
-            case "priority-based-scheduling": {
+            case "age-based-priority-scheduling": {
                 blockingQueuePriorityS.offer(message);
+
+                break;
             }
+            default:
+                throw new IllegalArgumentException("Unsupported algorithm: " + schedulingAlgorithm);
 
         }
 

@@ -20,21 +20,9 @@ public class KafkaConsumerService {
 
     @KafkaListener(topics = "topic_1-10", groupId = "my-group")
     public void listen_1to10(String message) {
-//        ObjectMapper objectMapper = new ObjectMapper();
-//
-//        try {
-//            KeyValueObject keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
-//            System.out.println("Received message #" + messageCount + " from Kafka: " + keyValueObject);
-//        } catch (JsonProcessingException e) {
-//            e.printStackTrace();
-//        }
-//
-//        messageCount.incrementAndGet();
 
         String routingKey = "consumer.one";
         rabbitTemplate.convertAndSend(RabbitMQConfig.DIRECT_EXCHANGE, routingKey, message);
-
-
 
     }
 
@@ -43,15 +31,5 @@ public class KafkaConsumerService {
         String routingKey = "consumer.two";
         rabbitTemplate.convertAndSend(RabbitMQConfig.DIRECT_EXCHANGE, routingKey, message);
 
-//        ObjectMapper objectMapper = new ObjectMapper();
-//
-//        try {
-//            KeyValueObject keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
-//            System.out.println("Received message #" + messageCount + " from Kafka: " + keyValueObject);
-//        } catch (JsonProcessingException e) {
-//            e.printStackTrace();
-//        }
-//
-//        messageCount.incrementAndGet();
     }
 }

@@ -34,7 +34,6 @@ public class ServerController {
     @PostMapping("/server2")
     public ResponseEntity<String> handleServer2(@RequestBody KeyValueObject keyValueObject) {
         try {
-//            serverSimulator.putEntryToQueueServer2(keyValueObject);
             serverSimulator.getQueueServer2().put(keyValueObject);
 
             return ResponseEntity.status(HttpStatus.OK).body("Data processed by Server 2");

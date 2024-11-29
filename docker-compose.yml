@@ -76,6 +76,7 @@ services:
       - SPRING_RABBITMQ_PASSWORD=guest
     depends_on:
       - rabbitmq
+      - servers
 
   servers:
     build:

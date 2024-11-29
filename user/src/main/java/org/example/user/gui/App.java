@@ -34,7 +34,7 @@ public class App extends Application {
 
         // Event handlers for buttons
         priorityButton.setOnAction(e -> {
-            schedulingMode = "priority-based-scheduling";
+            schedulingMode = "age-based-priority-scheduling";
             selectionStage.close();
             showMainStage(primaryStage, schedulingMode);
         });

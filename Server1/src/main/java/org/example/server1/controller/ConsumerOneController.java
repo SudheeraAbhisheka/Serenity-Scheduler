@@ -22,6 +22,5 @@ public class ConsumerOneController {
     public void setAlgorithm(@RequestBody String schedulingAlgorithm) {
         schedulingAlgorithms.setSchedulingAlgorithm(schedulingAlgorithm);
         consumerOne.setSchedulingAlgorithm(schedulingAlgorithm);
-        System.out.println("Algorithm set to: " + schedulingAlgorithm);
     }
 }
