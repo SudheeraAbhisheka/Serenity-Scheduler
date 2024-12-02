@@ -13,17 +13,16 @@ import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Service
 public class Inputs {
     private final RestTemplate restTemplate;
     private final AtomicInteger sendMessageCount = new AtomicInteger(0);
 
-    public Inputs(RestTemplate restTemplate, String algorithm) {
+    public Inputs(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
-        setAlgorithm(algorithm);
     }
 
     public void runTimedHelloWorld(TextArea outputArea){
+
         new Thread(() -> {
             timedHelloWorld(outputArea);
         }).start();
@@ -104,10 +103,11 @@ public class Inputs {
         }
     }
 
-    private void setAlgorithm(String algorithm){
+    public boolean setAlgorithm(String algorithm){
         String url = "http://localhost:8083/consumer-one/set-algorithm";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        boolean setSuccess = false;
 
         HttpEntity<String> request = new HttpEntity<>(algorithm, headers);
 
@@ -115,13 +115,16 @@ public class Inputs {
             ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
             if (response.getStatusCode().is2xxSuccessful()) {
                 System.out.println("Algorithm set successfully.");
+                setSuccess = true;
             } else {
                 System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
             }
         } catch (Exception e) {
-            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
-            e.printStackTrace();
+//            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
+//            e.printStackTrace();
         }
+
+        return setSuccess;
     }
 
 

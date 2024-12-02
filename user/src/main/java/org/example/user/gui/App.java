@@ -6,16 +6,18 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import org.example.user.config.AppConfig;
 import org.example.user.service.Inputs;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.web.client.RestTemplate;
 
 public class App extends Application {
 
     private String schedulingMode;
+    private final Inputs inputs = new Inputs(new RestTemplate());
 
     @Override
     public void start(Stage primaryStage) {
-        // Create the initial stage for mode selection
         Stage selectionStage = new Stage();
         VBox selectionRoot = new VBox(10);
         selectionRoot.setPadding(new Insets(15));
@@ -32,24 +34,50 @@ public class App extends Application {
         selectionStage.setScene(selectionScene);
         selectionStage.show();
 
-        // Event handlers for buttons
         priorityButton.setOnAction(e -> {
             schedulingMode = "age-based-priority-scheduling";
             selectionStage.close();
-            showMainStage(primaryStage, schedulingMode);
+
+            boolean setModeSuccess;
+            setModeSuccess = inputs.setAlgorithm(schedulingMode);
+
+            if(setModeSuccess) {
+                showMainStage(primaryStage, schedulingMode);
+            }
+            else{
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Error");
+                alert.setHeaderText("Failed to Set Scheduling Model");
+                alert.setContentText("The scheduling model could not be set. Please try again.");
+                alert.showAndWait();
+
+                start(new Stage());
+            }
         });
 
         fetchButton.setOnAction(e -> {
             schedulingMode = "complete-and-then-fetch";
             selectionStage.close();
-            showMainStage(primaryStage, schedulingMode);
+
+            boolean setModeSuccess;
+            setModeSuccess = inputs.setAlgorithm(schedulingMode);
+
+            if(setModeSuccess) {
+                showMainStage(primaryStage, schedulingMode);
+            }
+            else{
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Error");
+                alert.setHeaderText("Failed to Set Scheduling Model");
+                alert.setContentText("The scheduling model could not be set. Please try again.");
+                alert.showAndWait();
+
+                start(new Stage());
+            }
         });
     }
 
     private void showMainStage(Stage primaryStage, String mode) {
-        Inputs inputs = new Inputs(new RestTemplate(), mode);
-
-        // Main Stage UI Elements
         VBox root = new VBox(10);
         root.setPadding(new Insets(15));
 
@@ -79,8 +107,8 @@ public class App extends Application {
         });
 
         backButton.setOnAction(e -> {
-            primaryStage.close(); // Close the current main stage
-            start(new Stage());   // Re-open the initial selection stage
+            primaryStage.close();
+            start(new Stage());
         });
 
         Scene scene = new Scene(root, 400, 300);

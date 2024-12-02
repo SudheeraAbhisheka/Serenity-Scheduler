@@ -1,31 +1,51 @@
 package org.example.server1.service;
 
 import com.example.KeyValueObject;
+import com.example.ServerObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.catalina.Server;
 import org.example.server1.component.ConsumerOne;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 @Service
 public class SchedulingAlgorithms {
     private final RestTemplate restTemplate;
-    boolean waitingThreads = false;
+    private boolean waitingThreads = false;
+//    private ConcurrentHashMap<String, ServerObject> servers;
+    private LinkedHashMap<String, Double> servers;
 
+    @Autowired
     public SchedulingAlgorithms(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
     public void setSchedulingAlgorithm(String algorithm){
+        servers= new LinkedHashMap<>(){{
+            put("1", 10.0);
+            put("2", 0.05);
+        }};
+
+//        servers = new ConcurrentHashMap<>(){{
+//            put("1", new ServerObject("1", new LinkedBlockingQueue<>(1), 20));
+//            put("2", new ServerObject("2", new LinkedBlockingQueue<>(1), 20));
+//
+//        }};
+
+        setServers();
+
         switch (algorithm) {
             case "complete-and-then-fetch":
                 completeAndThenFetchModel();
@@ -41,10 +61,11 @@ public class SchedulingAlgorithms {
     }
 
     public void completeAndThenFetchModel() {
-        for(int i = 0; i < 2; i++){
-            int finalI = i;
+//        for(ServerObject serverObject : fetchServers().values()){
+        for(String serverId : servers.keySet()){
             new Thread(() -> {
                 ObjectMapper objectMapper = new ObjectMapper();
+
                 while (true) {
                     KeyValueObject keyValueObject;
                     String message;
@@ -54,11 +75,12 @@ public class SchedulingAlgorithms {
                         keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
 
                         try {
-                            String url = "http://servers:8084/api/server"+ (finalI+1);
+                            String url = "http://servers:8084/api/server?serverId=" + serverId;
+//                            String url = "http://servers:8084/api/server" + serverId;
                             ResponseEntity<String> response = restTemplate.postForEntity(url, keyValueObject, String.class);
 
                         } catch (Exception e) {
-                            System.err.printf("Error sending to Server %s: %s\n", (finalI+1), e.getMessage());
+                            System.err.printf("Error sending to Server %s: %s\n", serverId, e.getMessage());
                         }
 
                     } catch (InterruptedException | JsonProcessingException e) {
@@ -74,7 +96,6 @@ public class SchedulingAlgorithms {
         Queue<ArrivedTimeObject> queuePriority2 = new ConcurrentLinkedQueue<>();
         Queue<ArrivedTimeObject> queuePriority3 = new ConcurrentLinkedQueue<>();
         final Object lock = new Object();
-        BlockingQueue<Integer> bq_indicator = new LinkedBlockingQueue<>(1);
 
         new Thread(() -> {
             while (true) {
@@ -147,19 +168,19 @@ public class SchedulingAlgorithms {
 
                     oldObjects.sort(Comparator.comparingLong(OldObject::getAge).reversed());
                     KeyValueObject k = oldObjects.remove(0).getKeyValueObject();
-                    sendToServer1(k);
+                    sendToServer2(k);
                 }
                 else{
                     if(!queuePriority1.isEmpty()){
-                        sendToServer1(queuePriority1.poll().getKeyValueObject());
+                        sendToServer2(queuePriority1.poll().getKeyValueObject());
 
                     }
                     else if(!queuePriority2.isEmpty()){
-                        sendToServer1(queuePriority2.poll().getKeyValueObject());
+                        sendToServer2(queuePriority2.poll().getKeyValueObject());
 
                     }
                     else if(!queuePriority3.isEmpty()){
-                        sendToServer1(queuePriority3.poll().getKeyValueObject());
+                        sendToServer2(queuePriority3.poll().getKeyValueObject());
 
                     }else{
 
@@ -181,13 +202,53 @@ public class SchedulingAlgorithms {
         }).start();
     }
 
-    private void sendToServer1(KeyValueObject keyValueObject) {
+    private void sendToServer2(KeyValueObject keyValueObject) {
         try {
-            String url = "http://servers:8084/api/server1";
+            String url = "http://servers:8084/api/server2";
             ResponseEntity<String> response = restTemplate.postForEntity(url, keyValueObject, String.class);
 
         } catch (Exception e) {
-            System.err.printf("Error sending to Server 1: %s\n", e.getMessage());
+            System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
         }
     }
+
+    private void setServers() {
+        try {
+            String url = "http://servers:8084/api/set-servers";
+            ResponseEntity<String> response = restTemplate.postForEntity(url, servers, String.class);
+
+        } catch (Exception e) {
+            System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
+        }
+    }
+
+//    @Autowired
+//    private ObjectMapper objectMapper;
+//
+//    public ConcurrentHashMap<String, ServerObject> fetchServers() {
+//        ConcurrentHashMap<String, ServerObject> servers = new ConcurrentHashMap<>();
+//
+//        Map<String, LinkedHashMap> rawResponse = restTemplate.getForObject(
+//                "http://servers:8084/api/servers",
+//                Map.class
+//        );
+//
+//        rawResponse.forEach((key, value) -> {
+//            try {
+//                String id = String.valueOf(key);
+//                System.out.println("sever id: "+id);
+//                ServerObject serverObject = objectMapper.convertValue(value, new TypeReference<>() {
+//                });
+//                System.out.println("server object: "+serverObject);
+//
+//                servers.put(id, serverObject);
+//            } catch (IllegalArgumentException e) {
+//                // Log and handle the error if deserialization fails for any entry
+//                System.out.printf("Error deserializing ServerObject for key %s {%s}: {%s}\n", key, e.getMessage(), e);
+//            }
+//        });
+//
+//        return servers;
+//    }
+
 }

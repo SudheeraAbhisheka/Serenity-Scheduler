@@ -1,6 +1,7 @@
 package org.example.servers.service;
 
 import com.example.KeyValueObject;
+import com.example.ServerObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
@@ -9,30 +10,24 @@ import org.example.servers.controller.ServerController;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
-@Service
 public class ServerSimulator {
     @Getter
-    private final BlockingQueue<KeyValueObject> queueServer1 = new LinkedBlockingQueue<>(1);
-    @Getter
-    private final BlockingQueue<KeyValueObject> queueServer2 = new LinkedBlockingQueue<>(1);
-    @Getter
-    private final ArrayList<ServerObject> servers = new ArrayList<>();
+    @Setter
+    private ConcurrentHashMap<String, ServerObject> servers;
 
-    public ServerSimulator() {
-        servers.add(
-                new ServerObject(0, queueServer1, 1)
-        );
-        servers.add(
-                new ServerObject(1, queueServer2, 2)
-        );
+    public ServerSimulator() {}
 
-        for(ServerObject server : servers) {
+    public void StartServerSim() {
+        for(ServerObject server : servers.values()) {
             new Thread(() -> {
-                int serverId = server.getServerId();
-                int serverSpeed = server.getServerSpeed();
+                String serverId = server.getServerId();
+                double serverSpeed = server.getServerSpeed();
                 BlockingQueue<KeyValueObject> queueServer = server.getQueueServer();
 
                 while (true) {
@@ -40,7 +35,7 @@ public class ServerSimulator {
 
                     try {
                         keyValueObject = queueServer.take();
-                        Thread.sleep((long) keyValueObject.getWeight() * 100 / serverSpeed);
+                        Thread.sleep((long) ((keyValueObject.getWeight() / serverSpeed) * 1000));
 
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
@@ -56,4 +51,3 @@ public class ServerSimulator {
 
     }
 }
-
