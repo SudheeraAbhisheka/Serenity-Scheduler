@@ -11,14 +11,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.*;
 
 @Service
 public class SchedulingAlgorithms {
     private final RestTemplate restTemplate;
     private boolean waitingThreads = false;
-//    private ConcurrentHashMap<String, ServerObject> servers;
     private LinkedHashMap<String, Double> servers;
+    ExecutorService executorService = Executors.newFixedThreadPool(2);
+    BlockingQueue<String> unifiedQueue = new LinkedBlockingQueue<>(1);
 
     @Autowired
     public SchedulingAlgorithms(RestTemplate restTemplate) {
@@ -47,26 +48,78 @@ public class SchedulingAlgorithms {
 
     }
 
+//    public void completeAndThenFetchModel() {
+////        for(ServerObject serverObject : fetchServers().values()){
+//        for(String serverId : servers.keySet()){
+//            new Thread(() -> {
+//                ObjectMapper objectMapper = new ObjectMapper();
+//
+//                while (true) {
+//                    KeyValueObject keyValueObject;
+//                    String message;
+//
+//                    try {
+////                        message = RabbitMQ_consumer.getBlockingQueueCompleteF().take();
+//                        message = Kafka_consumer.getBlockingQueueCompleteF().take();
+//                        System.out.println("Kafka");
+//                        keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
+//
+//                        try {
+//                            String url = "http://servers:8084/api/server?serverId=" + serverId;
+////                            String url = "http://servers:8084/api/server" + serverId;
+//                            ResponseEntity<String> response = restTemplate.postForEntity(url, keyValueObject, String.class);
+//
+//                        } catch (Exception e) {
+//                            System.err.printf("Error sending to Server %s: %s\n", serverId, e.getMessage());
+//                        }
+//
+//                    } catch (InterruptedException | JsonProcessingException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                }
+//            }).start();
+//        }
+//    }
+
     public void completeAndThenFetchModel() {
-//        for(ServerObject serverObject : fetchServers().values()){
-        for(String serverId : servers.keySet()){
+        executorService.submit(() -> {
+            while (true) {
+                try {
+                    String message = RabbitMQ_consumer.getBlockingQueueCompleteF().take();
+                    System.out.println("RabbitMQ");
+                    unifiedQueue.put(message);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+
+        executorService.submit(() -> {
+            while (true) {
+                try {
+                    String message = Kafka_consumer.getBlockingQueueCompleteF().take();
+                    System.out.println("Kafka");
+                    unifiedQueue.put(message);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+
+        for (String serverId : servers.keySet()) {
             new Thread(() -> {
                 ObjectMapper objectMapper = new ObjectMapper();
 
                 while (true) {
-                    KeyValueObject keyValueObject;
-                    String message;
-
                     try {
-//                        message = RabbitMQ_consumer.getBlockingQueueCompleteF().take();
-                        message = Kafka_consumer.getBlockingQueueCompleteF().take();
-                        keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
+                        String message = unifiedQueue.take();
+                        KeyValueObject keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
 
+                        String url = "http://servers:8084/api/server?serverId=" + serverId;
                         try {
-                            String url = "http://servers:8084/api/server?serverId=" + serverId;
-//                            String url = "http://servers:8084/api/server" + serverId;
                             ResponseEntity<String> response = restTemplate.postForEntity(url, keyValueObject, String.class);
-
                         } catch (Exception e) {
                             System.err.printf("Error sending to Server %s: %s\n", serverId, e.getMessage());
                         }
@@ -78,6 +131,7 @@ public class SchedulingAlgorithms {
             }).start();
         }
     }
+
 
     public void priorityBasedScheduling(){
         Queue<ArrivedTimeObject> queuePriority1 = new ConcurrentLinkedQueue<>();

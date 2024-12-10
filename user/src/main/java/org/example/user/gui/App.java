@@ -1,6 +1,7 @@
 package org.example.user.gui;
 
 import javafx.application.Application;
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -29,7 +30,25 @@ public class App extends Application {
         Button fetchButton = new Button("Complete-and-then-Fetch");
 
         HBox selectionButtons = new HBox(10, priorityButton, fetchButton);
-        selectionRoot.getChildren().addAll(selectionLabel, selectionButtons);
+
+        Label brokerLabel = new Label("Select Message Broker:");
+        ComboBox<String> brokerComboBox = new ComboBox<>(
+                FXCollections.observableArrayList("Kafka", "RabbitMQ"));
+        brokerComboBox.setValue("Kafka"); // Default value
+
+        brokerComboBox.setOnAction(e -> {
+            String selectedBroker = brokerComboBox.getValue().toLowerCase();
+            inputs.setMessageBroker(selectedBroker);
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Message Broker");
+            alert.setHeaderText("Broker Set");
+            alert.setContentText("Message Broker set to: " + selectedBroker);
+            alert.showAndWait();
+        });
+
+        VBox brokerSelectionBox = new VBox(10, brokerLabel, brokerComboBox);
+        selectionRoot.getChildren().addAll(selectionLabel, selectionButtons, brokerSelectionBox);
+
 
         Scene selectionScene = new Scene(selectionRoot, 300, 200);
         selectionStage.setTitle("Select Scheduling Model");

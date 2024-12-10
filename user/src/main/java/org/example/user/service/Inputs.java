@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Inputs {
     private final RestTemplate restTemplate;
     private final AtomicInteger sendMessageCount = new AtomicInteger(0);
+    private String url;
 
     public Inputs(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -27,6 +28,46 @@ public class Inputs {
         new Thread(() -> {
             timedHelloWorld(outputArea);
         }).start();
+    }
+
+    public void setMessageBroker(String messageBroker){
+        switch(messageBroker){
+            case "kafka" : {
+                url = "http://localhost:8080/kafka-server/topic_1-10";
+                break;
+            }
+            case "rabbitmq" : {
+                url = "http://localhost:8080/rebbitmq-server/topic_1-10";
+                break;
+            }
+            default: url = "http://localhost:8080/kafka-server/topic_1-10";
+        }
+
+        System.out.println(url);
+    }
+
+    public boolean setAlgorithm(String algorithm){
+        String url = "http://localhost:8083/consumer-one/set-algorithm";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        boolean setSuccess = false;
+
+        HttpEntity<String> request = new HttpEntity<>(algorithm, headers);
+
+        try {
+            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println("Algorithm set successfully.");
+                setSuccess = true;
+            } else {
+                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+//            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
+//            e.printStackTrace();
+        }
+
+        return setSuccess;
     }
 
     private void timedHelloWorld(TextArea outputArea) {
@@ -104,33 +145,7 @@ public class Inputs {
         }
     }
 
-    public boolean setAlgorithm(String algorithm){
-        String url = "http://localhost:8083/consumer-one/set-algorithm";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        boolean setSuccess = false;
-
-        HttpEntity<String> request = new HttpEntity<>(algorithm, headers);
-
-        try {
-            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
-            if (response.getStatusCode().is2xxSuccessful()) {
-                System.out.println("Algorithm set successfully.");
-                setSuccess = true;
-            } else {
-                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
-            }
-        } catch (Exception e) {
-//            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
-//            e.printStackTrace();
-        }
-
-        return setSuccess;
-    }
-
     private void sendMessage_topic_1to10(KeyValueObject keyValueObject) {
-        String url = "http://localhost:8080/kafka-server/topic_1-10";
-//        String url = "http://localhost:8080/rebbitmq-server/topic_1-10";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -169,6 +184,5 @@ public class Inputs {
             e.printStackTrace();
         }
     }
-
 
 }
