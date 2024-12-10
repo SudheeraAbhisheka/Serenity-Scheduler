@@ -42,24 +42,7 @@ public class ServerController {
 
     @PostMapping("/server")
     public ResponseEntity<String> handleServer1(@RequestParam String serverId, @RequestBody KeyValueObject keyValueObject) throws InterruptedException {
-//        for(String serverID2 : servers.keySet()) {
-//            if(serverID.equals(serverID2)){
-//                servers.get(serverID).getQueueServer().put(keyValueObject);
-//
-//            }
-//        }
-//
-//        if(servers.containsKey(serverID)) {
-            servers.get(serverId).getQueueServer().put(keyValueObject);
-//        }
-
-//        if(serverId.equals("1")){
-//            servers.get(serverId).getQueueServer().put(keyValueObject);
-//
-//        }
-//        if(serverId.equals("2")){
-//            servers.get(serverId).getQueueServer().put(keyValueObject);
-//        }
+        servers.get(serverId).getQueueServer().put(keyValueObject);
 
         return new ResponseEntity<>(HttpStatus.OK);
     }

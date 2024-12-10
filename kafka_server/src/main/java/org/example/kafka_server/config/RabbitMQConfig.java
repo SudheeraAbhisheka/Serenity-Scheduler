@@ -1,4 +1,4 @@
-package org.example.kafka_consumer.config;
+package org.example.kafka_server.config;
 
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.context.annotation.Bean;

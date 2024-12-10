@@ -8,7 +8,9 @@ import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import org.example.user.config.AppConfig;
 import org.example.user.service.Inputs;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 public class App extends Application {

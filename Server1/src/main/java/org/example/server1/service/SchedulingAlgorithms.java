@@ -1,24 +1,17 @@
 package org.example.server1.service;
 
 import com.example.KeyValueObject;
-import com.example.ServerObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.catalina.Server;
-import org.example.server1.component.ConsumerOne;
+import org.example.server1.component.Kafka_consumer;
+import org.example.server1.component.RabbitMQ_consumer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 @Service
 public class SchedulingAlgorithms {
@@ -35,14 +28,8 @@ public class SchedulingAlgorithms {
     public void setSchedulingAlgorithm(String algorithm){
         servers= new LinkedHashMap<>(){{
             put("1", 10.0);
-            put("2", 0.05);
+            put("2", 20.0);
         }};
-
-//        servers = new ConcurrentHashMap<>(){{
-//            put("1", new ServerObject("1", new LinkedBlockingQueue<>(1), 20));
-//            put("2", new ServerObject("2", new LinkedBlockingQueue<>(1), 20));
-//
-//        }};
 
         setServers();
 
@@ -71,7 +58,8 @@ public class SchedulingAlgorithms {
                     String message;
 
                     try {
-                        message = ConsumerOne.getBlockingQueueCompleteF().take();
+//                        message = RabbitMQ_consumer.getBlockingQueueCompleteF().take();
+                        message = Kafka_consumer.getBlockingQueueCompleteF().take();
                         keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
 
                         try {
@@ -105,7 +93,8 @@ public class SchedulingAlgorithms {
 
                 try {
 
-                    message = ConsumerOne.getBlockingQueuePriorityS().take();
+//                    message = RabbitMQ_consumer.getBlockingQueuePriorityS().take();
+                    message = Kafka_consumer.getBlockingQueuePriorityS().take();
 
                     if(waitingThreads){
                         synchronized (lock) {

@@ -3,6 +3,7 @@ package org.example.user.service;
 import com.example.KeyValueObject;
 import javafx.application.Platform;
 import javafx.scene.control.TextArea;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -13,6 +14,7 @@ import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Service
 public class Inputs {
     private final RestTemplate restTemplate;
     private final AtomicInteger sendMessageCount = new AtomicInteger(0);
@@ -22,7 +24,6 @@ public class Inputs {
     }
 
     public void runTimedHelloWorld(TextArea outputArea){
-
         new Thread(() -> {
             timedHelloWorld(outputArea);
         }).start();
@@ -127,10 +128,9 @@ public class Inputs {
         return setSuccess;
     }
 
-
-
     private void sendMessage_topic_1to10(KeyValueObject keyValueObject) {
-        String url = "http://localhost:8080/send-message/topic_1-10";
+        String url = "http://localhost:8080/kafka-server/topic_1-10";
+//        String url = "http://localhost:8080/rebbitmq-server/topic_1-10";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -138,6 +138,7 @@ public class Inputs {
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+
             if (response.getStatusCode().is2xxSuccessful()) {
 
             } else {

@@ -10,7 +10,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 @Component
-public class ConsumerOne {
+public class RabbitMQ_consumer {
     @Getter
     private static final BlockingQueue<String> blockingQueueCompleteF = new LinkedBlockingQueue<>(1);
     @Getter
