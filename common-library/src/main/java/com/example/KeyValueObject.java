@@ -5,13 +5,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class KeyValueObject {
-    @JsonProperty("key") private String key;
-    @JsonProperty("value") private int value;
-    @JsonProperty("weight") private int weight;
-    @JsonProperty("executed") private boolean executed;
-    @JsonProperty("priority") private int priority;
+    private String key;
+    private int value;
+    private int weight;
+    private boolean executed;
+    private int priority;
 
     public KeyValueObject() {
     }

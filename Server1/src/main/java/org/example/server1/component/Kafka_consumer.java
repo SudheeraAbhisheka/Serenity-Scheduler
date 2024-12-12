@@ -29,7 +29,7 @@ public class Kafka_consumer {
                 try {
                     blockingQueueCompleteF.put(message);
                 } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt(); // Reset interrupt status
+                    Thread.currentThread().interrupt();
                     System.out.println("blockingQueueCompleteF was interrupted while adding a message to the queue.");
                 }
 

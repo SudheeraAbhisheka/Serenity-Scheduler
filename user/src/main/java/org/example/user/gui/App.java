@@ -7,20 +7,20 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import org.example.user.config.AppConfig;
 import org.example.user.service.Inputs;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.LinkedHashMap;
 
 public class App extends Application {
 
     private String schedulingMode;
     private final Inputs inputs = new Inputs(new RestTemplate());
+    private LinkedHashMap<String, Double> servers;
 
     @Override
     public void start(Stage primaryStage) {
+        String messageBroker;
         Stage selectionStage = new Stage();
         VBox selectionRoot = new VBox(10);
         selectionRoot.setPadding(new Insets(15));
@@ -34,11 +34,10 @@ public class App extends Application {
         Label brokerLabel = new Label("Select Message Broker:");
         ComboBox<String> brokerComboBox = new ComboBox<>(
                 FXCollections.observableArrayList("Kafka", "RabbitMQ"));
-        brokerComboBox.setValue("Kafka"); // Default value
+        brokerComboBox.setValue("Kafka");
 
         brokerComboBox.setOnAction(e -> {
             String selectedBroker = brokerComboBox.getValue().toLowerCase();
-            inputs.setMessageBroker(selectedBroker);
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Message Broker");
             alert.setHeaderText("Broker Set");
@@ -55,15 +54,31 @@ public class App extends Application {
         selectionStage.setScene(selectionScene);
         selectionStage.show();
 
+//        servers = new LinkedHashMap<>(){{
+//            put("1", 20.0);
+//            put("2", 20.0);
+//            put("3", 20.0);
+//            put("4", 20.0);
+//        }};
+
+        servers = new LinkedHashMap<>();
+
+        for (int i = 1; i <= 100; i++) {
+            servers.put(i+"", 100.0);
+        }
+
         priorityButton.setOnAction(e -> {
             schedulingMode = "age-based-priority-scheduling";
             selectionStage.close();
 
-            boolean setModeSuccess;
-            setModeSuccess = inputs.setAlgorithm(schedulingMode);
+            boolean setModeSuccess1;
+            boolean setModeSuccess2;
+            String selectedBroker = brokerComboBox.getValue().toLowerCase();
+            setModeSuccess1 = inputs.setAlgorithm(schedulingMode, selectedBroker);
+            setModeSuccess2 = inputs.setServers(servers);
 
-            if(setModeSuccess) {
-                showMainStage(primaryStage, schedulingMode);
+            if(setModeSuccess1 && setModeSuccess2) {
+                showMainStage(primaryStage, schedulingMode, selectedBroker);
             }
             else{
                 Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -80,11 +95,21 @@ public class App extends Application {
             schedulingMode = "complete-and-then-fetch";
             selectionStage.close();
 
-            boolean setModeSuccess;
-            setModeSuccess = inputs.setAlgorithm(schedulingMode);
+            boolean setModeSuccess1;
+            boolean setModeSuccess2;
+            boolean setModeSuccess3;
+            String selectedBroker = brokerComboBox.getValue().toLowerCase();
+            setModeSuccess1 = inputs.setAlgorithm(schedulingMode, selectedBroker);
+            setModeSuccess2 = inputs.setServers(servers);
+//            setModeSuccess3 = inputs.setNewServers(new LinkedHashMap<>(){{
+//                put("5", 20.0);
+//                put("6", 20.0);
+//            }});
 
-            if(setModeSuccess) {
-                showMainStage(primaryStage, schedulingMode);
+            setModeSuccess3 = true;
+
+            if(setModeSuccess1 && setModeSuccess2 && setModeSuccess3) {
+                showMainStage(primaryStage, schedulingMode, selectedBroker);
             }
             else{
                 Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -98,11 +123,11 @@ public class App extends Application {
         });
     }
 
-    private void showMainStage(Stage primaryStage, String mode) {
+    private void showMainStage(Stage primaryStage, String mode, String selectedBroker) {
         VBox root = new VBox(10);
         root.setPadding(new Insets(15));
 
-        Label label = new Label("Do you want to run timedHelloWorld?");
+        Label label = new Label("Message Broker: " + selectedBroker);
         Button yesButton = new Button("Yes");
         Button noButton = new Button("No");
         Button clearButton = new Button("Clear");

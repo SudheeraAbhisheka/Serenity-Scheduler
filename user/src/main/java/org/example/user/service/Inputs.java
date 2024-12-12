@@ -1,14 +1,14 @@
 package org.example.user.service;
 
+import com.example.AlgorithmRequestObj;
 import com.example.KeyValueObject;
 import javafx.application.Platform;
 import javafx.scene.control.TextArea;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Scanner;
+import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.*;
@@ -30,7 +30,82 @@ public class Inputs {
         }).start();
     }
 
-    public void setMessageBroker(String messageBroker){
+    public boolean setAlgorithm(String algorithm, String messageBroker){
+        setMessageBroker(messageBroker);
+        String url = "http://localhost:8083/consumer-one/set-algorithm";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        boolean setSuccess = false;
+
+        AlgorithmRequestObj requestBody = new AlgorithmRequestObj(algorithm, messageBroker);
+
+        HttpEntity<AlgorithmRequestObj> request = new HttpEntity<>(requestBody, headers);
+
+        try {
+            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println("Algorithm set successfully.");
+                setSuccess = true;
+            } else {
+                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return setSuccess;
+    }
+
+    public boolean setServers(LinkedHashMap<String, Double> servers){
+        String url = "http://localhost:8084/api/set-servers";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        boolean setSuccess = false;
+
+        HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(servers, headers);
+
+        try {
+            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println("Servers set successfully. " + servers.size());
+                setSuccess = true;
+            } else {
+                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return setSuccess;
+    }
+
+    public boolean setNewServers(LinkedHashMap<String, Double> newServers){
+        String url = "http://localhost:8084/api/set-new-servers";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        boolean setSuccess = false;
+
+        HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(newServers, headers);
+
+        try {
+            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println("New servers set successfully.");
+                setSuccess = true;
+            } else {
+                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return setSuccess;
+    }
+
+    private void setMessageBroker(String messageBroker){
         switch(messageBroker){
             case "kafka" : {
                 url = "http://localhost:8080/kafka-server/topic_1-10";
@@ -42,83 +117,48 @@ public class Inputs {
             }
             default: url = "http://localhost:8080/kafka-server/topic_1-10";
         }
-
-        System.out.println(url);
-    }
-
-    public boolean setAlgorithm(String algorithm){
-        String url = "http://localhost:8083/consumer-one/set-algorithm";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        boolean setSuccess = false;
-
-        HttpEntity<String> request = new HttpEntity<>(algorithm, headers);
-
-        try {
-            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
-            if (response.getStatusCode().is2xxSuccessful()) {
-                System.out.println("Algorithm set successfully.");
-                setSuccess = true;
-            } else {
-                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
-            }
-        } catch (Exception e) {
-//            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
-//            e.printStackTrace();
-        }
-
-        return setSuccess;
     }
 
     private void timedHelloWorld(TextArea outputArea) {
-        Random random = new Random(); //ThreadLocalRandom
+        Random random = new Random();
         AtomicInteger value = new AtomicInteger();
         sendMessageCount.set(0);
 
-        ArrayList<Integer> randomSeconds = new ArrayList<>();
-        randomSeconds.add(5);
-        randomSeconds.add(5);
-        randomSeconds.add(5);
+        ArrayList<Integer> scheduleRate = new ArrayList<>();
+        scheduleRate.add(5);
+        scheduleRate.add(10);
+        scheduleRate.add(15);
 
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(randomSeconds.size());
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(scheduleRate.size());
         BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
 
-        for (int seconds : randomSeconds) {
-            int iterationTime = 4 + random.nextInt(2);
+        for (int milliSeconds : scheduleRate) {
+            new Thread(() -> {
+                int countLimit = 600;
 
-            scheduler.schedule(() -> {
-                long printEndTime = System.currentTimeMillis() + iterationTime * 1000;
-                while (System.currentTimeMillis() < printEndTime) {
-                    value.set(1 + random.nextInt(20));
+                while (countLimit > 0){
+                    value.set(1 + random.nextInt(10));
 
-                    if (value.get() <= 10) {
-                        KeyValueObject keyValueObject = new KeyValueObject(
-                                String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
-                                value.get(),
-                                1 + random.nextInt(10),
-                                false,
-                                1 + random.nextInt(3)
-                        );
-                        sendMessage_topic_1to10(keyValueObject);
-                        messageQueue.add("From thread " + Thread.currentThread().getName() + "\n" + keyValueObject + "\n");
-                        sendMessageCount.incrementAndGet();
-                    } else {
-//                        sendMessage_topic_11to20(new KeyValueObject(
-//                                String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
-//                                value.get(),
-//                                1 + random.nextInt(10),
-//                                false));
-                    }
+                    KeyValueObject keyValueObject = new KeyValueObject(
+                            String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
+                            value.get(),
+                            1 + random.nextInt(10),
+                            false,
+                            1 + random.nextInt(3)
+                    );
+                    sendMessage_topic_1to10(keyValueObject);
+                    messageQueue.add("From thread " + Thread.currentThread().getName() + "\n" + keyValueObject + "\n");
+                    sendMessageCount.incrementAndGet();
 
                     try {
-                        Thread.sleep(100);
+                        Thread.sleep(milliSeconds);
                     } catch (InterruptedException e) {
-                        Platform.runLater(() -> outputArea.appendText("Interrupted during print loop\n"));
-                        Thread.currentThread().interrupt();
-                        break;
+                        throw new RuntimeException(e);
                     }
+
+                    countLimit--;
                 }
-            }, seconds, TimeUnit.SECONDS);
+            }).start();
         }
 
         new Thread(() -> {
@@ -136,13 +176,13 @@ public class Inputs {
             }
         }).start();
 
-        scheduler.shutdown();
-        try {
-            scheduler.awaitTermination(20, TimeUnit.SECONDS);
-            Platform.runLater(() -> outputArea.appendText("sendMessage was called " + sendMessageCount.get() + " times.\n"));
-        } catch (InterruptedException e) {
-            Platform.runLater(() -> outputArea.appendText("Scheduler interrupted during awaitTermination.\n"));
-        }
+//        scheduler.shutdown();
+//        try {
+//            scheduler.awaitTermination(20, TimeUnit.SECONDS);
+//            Platform.runLater(() -> outputArea.appendText("sendMessage was called " + sendMessageCount.get() + " times.\n"));
+//        } catch (InterruptedException e) {
+//            Platform.runLater(() -> outputArea.appendText("Scheduler interrupted during awaitTermination.\n"));
+//        }
     }
 
     private void sendMessage_topic_1to10(KeyValueObject keyValueObject) {

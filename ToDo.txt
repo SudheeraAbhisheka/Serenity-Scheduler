@@ -1,0 +1,4 @@
+React front end for each server
+Remove new server linkedhash map use only the servers hashmap
+Removing kakaserver
+Replacing REST api with kafka

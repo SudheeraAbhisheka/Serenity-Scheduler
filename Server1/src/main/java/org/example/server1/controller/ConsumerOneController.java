@@ -1,10 +1,16 @@
 package org.example.server1.controller;
 
+import com.example.AlgorithmRequestObj;
+import com.example.KeyValueObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.server1.component.Kafka_consumer;
 import org.example.server1.component.RabbitMQ_consumer;
 import org.example.server1.service.SchedulingAlgorithms;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.LinkedHashMap;
 
 @RestController
 @RequestMapping("/consumer-one")
@@ -22,9 +28,18 @@ public class ConsumerOneController {
     }
 
     @PostMapping("/set-algorithm")
-    public void setAlgorithm(@RequestBody String schedulingAlgorithm) {
-        schedulingAlgorithms.setSchedulingAlgorithm(schedulingAlgorithm);
-        rabbitMQ_consumer.setSchedulingAlgorithm(schedulingAlgorithm);
-        kafka_consumer.setSchedulingAlgorithm(schedulingAlgorithm);
+    public void setAlgorithm(@RequestBody String algorithmRequest) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        AlgorithmRequestObj algorithmRequestObj = objectMapper.readValue(algorithmRequest, AlgorithmRequestObj.class);
+
+        schedulingAlgorithms.setSchedulingAlgorithm(algorithmRequestObj);
+        rabbitMQ_consumer.setSchedulingAlgorithm(algorithmRequestObj.getAlgorithm());
+        kafka_consumer.setSchedulingAlgorithm(algorithmRequestObj.getAlgorithm());
+    }
+
+    @PostMapping("/set-new-servers")
+    public void addServers(@RequestBody LinkedHashMap<String, Double> newServers) {
+        System.out.println("newServers: " + newServers);
+        schedulingAlgorithms.addNewServersCATFModel(newServers);
     }
 }
