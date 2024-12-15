@@ -28,8 +28,9 @@ public class App extends Application {
         Label selectionLabel = new Label("Select a Scheduling Model:");
         Button priorityButton = new Button("Priority-based Scheduling");
         Button fetchButton = new Button("Complete-and-then-Fetch");
+        Button wlbButton = new Button("Weight-load-balancing");
 
-        HBox selectionButtons = new HBox(10, priorityButton, fetchButton);
+        HBox selectionButtons = new HBox(10, priorityButton, fetchButton, wlbButton);
 
         Label brokerLabel = new Label("Select Message Broker:");
         ComboBox<String> brokerComboBox = new ComboBox<>(
@@ -54,18 +55,18 @@ public class App extends Application {
         selectionStage.setScene(selectionScene);
         selectionStage.show();
 
-//        servers = new LinkedHashMap<>(){{
-//            put("1", 20.0);
-//            put("2", 20.0);
-//            put("3", 20.0);
-//            put("4", 20.0);
-//        }};
+        servers = new LinkedHashMap<>(){{
+            put("1", 100.0);
+            put("2", 20.0);
+            put("3", 20.0);
+            put("4", 20.0);
+        }};
 
-        servers = new LinkedHashMap<>();
-
-        for (int i = 1; i <= 100; i++) {
-            servers.put(i+"", 100.0);
-        }
+//        servers = new LinkedHashMap<>();
+//
+//        for (int i = 1; i <= 100; i++) {
+//            servers.put(i+"", 100.0);
+//        }
 
         priorityButton.setOnAction(e -> {
             schedulingMode = "age-based-priority-scheduling";
@@ -93,6 +94,37 @@ public class App extends Application {
 
         fetchButton.setOnAction(e -> {
             schedulingMode = "complete-and-then-fetch";
+            selectionStage.close();
+
+            boolean setModeSuccess1;
+            boolean setModeSuccess2;
+            boolean setModeSuccess3;
+            String selectedBroker = brokerComboBox.getValue().toLowerCase();
+            setModeSuccess1 = inputs.setAlgorithm(schedulingMode, selectedBroker);
+            setModeSuccess2 = inputs.setServers(servers);
+//            setModeSuccess3 = inputs.setNewServers(new LinkedHashMap<>(){{
+//                put("5", 20.0);
+//                put("6", 20.0);
+//            }});
+
+            setModeSuccess3 = true;
+
+            if(setModeSuccess1 && setModeSuccess2 && setModeSuccess3) {
+                showMainStage(primaryStage, schedulingMode, selectedBroker);
+            }
+            else{
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Error");
+                alert.setHeaderText("Failed to Set Scheduling Model");
+                alert.setContentText("The scheduling model could not be set. Please try again.");
+                alert.showAndWait();
+
+                start(new Stage());
+            }
+        });
+
+        wlbButton.setOnAction(e -> {
+            schedulingMode = "weight-load-balancing";
             selectionStage.close();
 
             boolean setModeSuccess1;

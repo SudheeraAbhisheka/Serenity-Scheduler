@@ -28,7 +28,7 @@ public class ServerController {
         ConcurrentHashMap<String, ServerObject> servers = new ConcurrentHashMap<>();
 
         for(Map.Entry<String, Double> entry : initialServers.entrySet()) {
-            servers.put(entry.getKey(), new ServerObject(entry.getKey(), new LinkedBlockingQueue<>(1), entry.getValue()));
+            servers.put(entry.getKey(), new ServerObject(entry.getKey(), new LinkedBlockingQueue<>(), entry.getValue()));
         }
 
         serverSimulator.setServers(servers);
@@ -54,6 +54,18 @@ public class ServerController {
     @PostMapping("/server")
     public ResponseEntity<String> handleServer1(@RequestParam String serverId, @RequestBody KeyValueObject keyValueObject) throws InterruptedException {
         serverSimulator.getServers().get(serverId).getQueueServer().put(keyValueObject);
+
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @PostMapping("/wlb-algorithm")
+    public ResponseEntity<String> weightLoadBalancing(@RequestBody Map<KeyValueObject, String> taskServersMap) throws InterruptedException {
+        for (Map.Entry<KeyValueObject, String> entry : taskServersMap.entrySet()) {
+            KeyValueObject keyValueObject = entry.getKey();
+            String serverId = entry.getValue();
+
+            serverSimulator.getServers().get(serverId).getQueueServer().put(keyValueObject);
+        }
 
         return new ResponseEntity<>(HttpStatus.OK);
     }

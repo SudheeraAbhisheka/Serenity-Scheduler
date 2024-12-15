@@ -1,17 +1,13 @@
 package org.example.server1.component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class Kafka_consumer {
@@ -21,6 +17,8 @@ public class Kafka_consumer {
     private static final BlockingQueue<String> blockingQueuePriorityS = new LinkedBlockingQueue<>();
     @Setter
     private String schedulingAlgorithm;
+    @Getter
+    private static final ConcurrentLinkedQueue<String> wlbQueue = new ConcurrentLinkedQueue<>();
 
     @KafkaListener(topics = "topic_1-10", groupId = "my-group")
     public void listen_1to10(String message) {
@@ -40,6 +38,9 @@ public class Kafka_consumer {
 
                 break;
             }
+            case "weight-load-balancing" :
+                wlbQueue.add(message);
+            break;
             default:
                 throw new IllegalArgumentException("Unsupported algorithm: " + schedulingAlgorithm);
 

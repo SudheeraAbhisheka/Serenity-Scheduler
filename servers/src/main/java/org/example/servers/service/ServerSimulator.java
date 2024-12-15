@@ -21,12 +21,15 @@ public class ServerSimulator {
     @Setter
     private ConcurrentHashMap<String, ServerObject> servers;
 
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private ExecutorService executorService;
 
     public void startServerSim() {
-        if (!executorService.isShutdown()) {
+        if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdownNow();
         }
+
+        executorService = Executors.newCachedThreadPool();
+
         for (ServerObject server : servers.values()) {
             executorService.submit(() -> processServerQueue(server));
         }

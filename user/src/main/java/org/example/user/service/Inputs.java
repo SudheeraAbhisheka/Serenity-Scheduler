@@ -8,9 +8,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.LinkedHashMap;
-import java.util.ArrayList;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -134,7 +132,7 @@ public class Inputs {
 
         for (int milliSeconds : scheduleRate) {
             new Thread(() -> {
-                int countLimit = 600;
+                int countLimit = 5;
 
                 while (countLimit > 0){
                     value.set(1 + random.nextInt(10));
