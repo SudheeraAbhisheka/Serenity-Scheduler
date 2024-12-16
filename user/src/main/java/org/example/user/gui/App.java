@@ -10,13 +10,10 @@ import javafx.stage.Stage;
 import org.example.user.service.Inputs;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.LinkedHashMap;
-
 public class App extends Application {
 
     private String schedulingMode;
     private final Inputs inputs = new Inputs(new RestTemplate());
-    private LinkedHashMap<String, Double> servers;
 
     @Override
     public void start(Stage primaryStage) {
@@ -55,30 +52,16 @@ public class App extends Application {
         selectionStage.setScene(selectionScene);
         selectionStage.show();
 
-        servers = new LinkedHashMap<>(){{
-            put("1", 100.0);
-            put("2", 20.0);
-            put("3", 20.0);
-            put("4", 20.0);
-        }};
-
-//        servers = new LinkedHashMap<>();
-//
-//        for (int i = 1; i <= 100; i++) {
-//            servers.put(i+"", 100.0);
-//        }
 
         priorityButton.setOnAction(e -> {
             schedulingMode = "age-based-priority-scheduling";
             selectionStage.close();
 
             boolean setModeSuccess1;
-            boolean setModeSuccess2;
             String selectedBroker = brokerComboBox.getValue().toLowerCase();
             setModeSuccess1 = inputs.setAlgorithm(schedulingMode, selectedBroker);
-            setModeSuccess2 = inputs.setServers(servers);
 
-            if(setModeSuccess1 && setModeSuccess2) {
+            if(setModeSuccess1) {
                 showMainStage(primaryStage, schedulingMode, selectedBroker);
             }
             else{
@@ -101,15 +84,10 @@ public class App extends Application {
             boolean setModeSuccess3;
             String selectedBroker = brokerComboBox.getValue().toLowerCase();
             setModeSuccess1 = inputs.setAlgorithm(schedulingMode, selectedBroker);
-            setModeSuccess2 = inputs.setServers(servers);
-//            setModeSuccess3 = inputs.setNewServers(new LinkedHashMap<>(){{
-//                put("5", 20.0);
-//                put("6", 20.0);
-//            }});
 
             setModeSuccess3 = true;
 
-            if(setModeSuccess1 && setModeSuccess2 && setModeSuccess3) {
+            if(setModeSuccess1 && setModeSuccess3) {
                 showMainStage(primaryStage, schedulingMode, selectedBroker);
             }
             else{
@@ -128,19 +106,13 @@ public class App extends Application {
             selectionStage.close();
 
             boolean setModeSuccess1;
-            boolean setModeSuccess2;
             boolean setModeSuccess3;
             String selectedBroker = brokerComboBox.getValue().toLowerCase();
             setModeSuccess1 = inputs.setAlgorithm(schedulingMode, selectedBroker);
-            setModeSuccess2 = inputs.setServers(servers);
-//            setModeSuccess3 = inputs.setNewServers(new LinkedHashMap<>(){{
-//                put("5", 20.0);
-//                put("6", 20.0);
-//            }});
 
             setModeSuccess3 = true;
 
-            if(setModeSuccess1 && setModeSuccess2 && setModeSuccess3) {
+            if(setModeSuccess1 && setModeSuccess3) {
                 showMainStage(primaryStage, schedulingMode, selectedBroker);
             }
             else{

@@ -4,6 +4,7 @@ import com.example.AlgorithmRequestObj;
 import com.example.KeyValueObject;
 import com.example.ServerObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.server1.component.Kafka_consumer;
 import org.example.server1.component.RabbitMQ_consumer;
@@ -92,7 +93,14 @@ public class SchedulingAlgorithms {
                         }
                     }
 
-                    weightLoadBalancing(tasks, servers);
+//                    weightLoadBalancing(tasks, servers);
+
+                    try {
+                        String url2 = "http://servers:8084/api/wlb-algorithm";
+                        restTemplate.postForEntity(url2, weightLoadBalancing(tasks, servers), Map.class);
+                    } catch (Exception e) {
+                        System.err.printf("Error sending to wlb-algorithm: %s\n", e.getMessage());
+                    }
 
                 }, 3000, 10000, TimeUnit.MILLISECONDS);
             }
@@ -246,8 +254,10 @@ public class SchedulingAlgorithms {
         }
     }
 
-    public Map<KeyValueObject, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) {
-        Map<KeyValueObject, String> taskAssignments = new HashMap<>();
+    public HashMap<String, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) throws JsonProcessingException {
+        // Greedy method
+        ObjectMapper objectMapper = new ObjectMapper();
+        HashMap<String, String> taskAssignments = new HashMap<>();
         tasks.sort((t1, t2) -> Double.compare(t2.getWeight(), t1.getWeight()));
         Map<String, Double> serverLoads = new HashMap<>();
 
@@ -270,19 +280,26 @@ public class SchedulingAlgorithms {
                     bestServer = serverId;
                 }
             }
-            taskAssignments.put(task, bestServer);
+            taskAssignments.put( objectMapper.writeValueAsString(task), bestServer);
             serverLoads.put(bestServer, bestLoadAfterAssignment);
         }
 
-        taskAssignments.forEach((task, serverId) ->
-                System.out.println("serverId: " + serverId + " taskWeight: " + task.getWeight()
-                        + " completionTime: " + (task.getWeight() / servers.get(serverId))));
+        double[] totalCompletionTime = {0.0};
+
+//        taskAssignments.forEach((task, serverId) -> {
+//            double completionTime = task.getWeight() / servers.get(serverId);
+//            System.out.println("serverId: " + serverId + " taskWeight: " + task.getWeight()
+//                    + " completionTime: " + completionTime);
+//            totalCompletionTime[0] += completionTime;
+//        });
+
+//        System.out.println("Total completion time: " + totalCompletionTime[0]);
 
         return taskAssignments;
     }
 
-
-/*    public void weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) {
+/*
+    public Map<KeyValueObject, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) {
         Map<KeyValueObject, String> taskAssignments = new HashMap<>();
 
         Map<String, Double> serverLoads = new HashMap<>();
@@ -311,15 +328,21 @@ public class SchedulingAlgorithms {
             serverLoads.put(bestServer, serverLoads.get(bestServer) + (taskWeight / chosenServerSpeed));
 
             taskAssignments.put(task, bestServer);
+
         }
 
         taskAssignments.forEach((task, serverId) ->
-                System.out.println("serverId: " + serverId + " weight: " + task.getWeight()));
-    }*/
+            System.out.println("serverId: " + serverId + " taskWeight: " + task.getWeight()
+                    + " completionTime: " + task.getWeight() / servers.get(serverId))
+        );
+
+        return taskAssignments;
+    }
+*/
 
 
 /*
-    public void weightLoadBalancing(ArrayList<KeyValueObject> keyValueObjects, LinkedHashMap<String, Double> servers){
+    public Map<KeyValueObject, String> weightLoadBalancing(ArrayList<KeyValueObject> keyValueObjects, LinkedHashMap<String, Double> servers){
         Map<KeyValueObject, String> taskServersMap = new HashMap<>();
 
         WightedLBObject[][] wLBArray;
@@ -343,8 +366,8 @@ public class SchedulingAlgorithms {
 
         for (int taskId = 0; taskId < wLBArray.length; taskId++) {
             double leastTime = wLBArray[taskId][0].getTime();
-            String selectedServerId = "1";
-            KeyValueObject leastTimeObj = null;
+            String selectedServerId = wLBArray[taskId][0].getServerId();
+            KeyValueObject leastTimeObj = wLBArray[taskId][0].getKeyValueObject();
             int j = 0;
             int selectedJ = 0;
 
@@ -369,6 +392,8 @@ public class SchedulingAlgorithms {
                 }
             }
         }
+
+        return taskServersMap;
 
     }
 */

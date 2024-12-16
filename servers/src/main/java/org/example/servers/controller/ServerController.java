@@ -2,6 +2,9 @@ package org.example.servers.controller;
 
 import com.example.KeyValueObject;
 import com.example.ServerObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.servers.service.ServerSimulator;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +19,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class ServerController {
     private final ServerSimulator serverSimulator;
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
 
     public ServerController(RestTemplate restTemplate, ServerSimulator serverSimulator) {
@@ -59,16 +63,28 @@ public class ServerController {
     }
 
     @PostMapping("/wlb-algorithm")
-    public ResponseEntity<String> weightLoadBalancing(@RequestBody Map<KeyValueObject, String> taskServersMap) throws InterruptedException {
-        for (Map.Entry<KeyValueObject, String> entry : taskServersMap.entrySet()) {
-            KeyValueObject keyValueObject = entry.getKey();
+    public ResponseEntity<String> weightLoadBalancing(@RequestBody Map<String, String> taskServersMap) throws InterruptedException, JsonProcessingException {
+        for (Map.Entry<String, String> entry : taskServersMap.entrySet()) {
+            System.out.println("KeyValueObject = " + entry.getKey());
+            KeyValueObject keyValueObject = objectMapper.readValue(entry.getKey(), KeyValueObject.class);
+//            KeyValueObject keyValueObject = objectMapper.convertValue(entry.getKey(), KeyValueObject.class);
             String serverId = entry.getValue();
-
             serverSimulator.getServers().get(serverId).getQueueServer().put(keyValueObject);
         }
-
         return new ResponseEntity<>(HttpStatus.OK);
     }
+
+//    @PostMapping("/wlb-algorithm")
+//    public ResponseEntity<String> weightLoadBalancing(@RequestBody HashMap<KeyValueObject, String> taskServersMap) throws InterruptedException, JsonProcessingException {
+//        for (Map.Entry<KeyValueObject, String> entry : taskServersMap.entrySet()) {
+//            KeyValueObject keyValueObject = entry.getKey();
+//            String serverId = entry.getValue();
+//            serverSimulator.getServers().get(serverId).getQueueServer().put(keyValueObject);
+//        }
+//
+//        return new ResponseEntity<>(HttpStatus.OK);
+//    }
+
 
     @PostMapping("/server2")
     public ResponseEntity<String> handleServer2(@RequestBody KeyValueObject keyValueObject) {
@@ -86,9 +102,12 @@ public class ServerController {
     public LinkedHashMap<String, Double> getServers() {
         LinkedHashMap<String, Double> linkedHashMap = new LinkedHashMap<>();
 
-        for(ServerObject serverObject : serverSimulator.getServers().values()) {
-            linkedHashMap.put(serverObject.getServerId(), serverObject.getServerSpeed());
+        if(serverSimulator.getServers() != null) {
+            for(ServerObject serverObject : serverSimulator.getServers().values()) {
+                linkedHashMap.put(serverObject.getServerId(), serverObject.getServerSpeed());
+            }
         }
+
         return linkedHashMap;
     }
 

@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: spring.application.name=servers_terminal
+
+server:
+  port: 8085
+

@@ -17,6 +17,7 @@ public class Inputs {
     private final RestTemplate restTemplate;
     private final AtomicInteger sendMessageCount = new AtomicInteger(0);
     private String url;
+    private ScheduledExecutorService scheduler;
 
     public Inputs(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -55,54 +56,6 @@ public class Inputs {
         return setSuccess;
     }
 
-    public boolean setServers(LinkedHashMap<String, Double> servers){
-        String url = "http://localhost:8084/api/set-servers";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        boolean setSuccess = false;
-
-        HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(servers, headers);
-
-        try {
-            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
-            if (response.getStatusCode().is2xxSuccessful()) {
-                System.out.println("Servers set successfully. " + servers.size());
-                setSuccess = true;
-            } else {
-                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
-            }
-        } catch (Exception e) {
-            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        return setSuccess;
-    }
-
-    public boolean setNewServers(LinkedHashMap<String, Double> newServers){
-        String url = "http://localhost:8084/api/set-new-servers";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        boolean setSuccess = false;
-
-        HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(newServers, headers);
-
-        try {
-            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
-            if (response.getStatusCode().is2xxSuccessful()) {
-                System.out.println("New servers set successfully.");
-                setSuccess = true;
-            } else {
-                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
-            }
-        } catch (Exception e) {
-            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        return setSuccess;
-    }
-
     private void setMessageBroker(String messageBroker){
         switch(messageBroker){
             case "kafka" : {
@@ -118,28 +71,30 @@ public class Inputs {
     }
 
     private void timedHelloWorld(TextArea outputArea) {
-        Random random = new Random();
-        AtomicInteger value = new AtomicInteger();
-        sendMessageCount.set(0);
+        // If there's already a scheduler running, shut it down
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdownNow();
+        }
 
+        // Create a new scheduler
         ArrayList<Integer> scheduleRate = new ArrayList<>();
         scheduleRate.add(5);
         scheduleRate.add(10);
         scheduleRate.add(15);
 
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(scheduleRate.size());
+        scheduler = Executors.newScheduledThreadPool(scheduleRate.size() + 1);
         BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
+        Random random = new Random(12345);
+        sendMessageCount.set(0);
 
+        // Submit producer tasks
         for (int milliSeconds : scheduleRate) {
-            new Thread(() -> {
+            scheduler.submit(() -> {
                 int countLimit = 5;
-
-                while (countLimit > 0){
-                    value.set(1 + random.nextInt(10));
-
+                while (countLimit > 0) {
                     KeyValueObject keyValueObject = new KeyValueObject(
                             String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
-                            value.get(),
+                            1 + random.nextInt(10),
                             1 + random.nextInt(10),
                             false,
                             1 + random.nextInt(3)
@@ -151,37 +106,30 @@ public class Inputs {
                     try {
                         Thread.sleep(milliSeconds);
                     } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
+                        // Task interrupted: break out
+                        Thread.currentThread().interrupt();
+                        break;
                     }
 
                     countLimit--;
                 }
-            }).start();
+            });
         }
 
-        new Thread(() -> {
-            String finalMessage = null;
-            while (true) {
-                try {
-                    finalMessage = messageQueue.take();
-
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+        // Submit the consumer task
+        scheduler.submit(() -> {
+            try {
+                while (true) {
+                    String finalMessage = messageQueue.take();
+                    Platform.runLater(() -> outputArea.appendText(finalMessage));
                 }
-                String finalMessage1 = finalMessage;
-                Platform.runLater(() -> outputArea.appendText(finalMessage1));
-
+            } catch (InterruptedException e) {
+                // Task interrupted, exit loop
+                Thread.currentThread().interrupt();
             }
-        }).start();
-
-//        scheduler.shutdown();
-//        try {
-//            scheduler.awaitTermination(20, TimeUnit.SECONDS);
-//            Platform.runLater(() -> outputArea.appendText("sendMessage was called " + sendMessageCount.get() + " times.\n"));
-//        } catch (InterruptedException e) {
-//            Platform.runLater(() -> outputArea.appendText("Scheduler interrupted during awaitTermination.\n"));
-//        }
+        });
     }
+
 
     private void sendMessage_topic_1to10(KeyValueObject keyValueObject) {
         HttpHeaders headers = new HttpHeaders();

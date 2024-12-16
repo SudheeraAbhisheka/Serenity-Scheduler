@@ -8,8 +8,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.Setter;
 import org.example.servers.controller.ServerController;
+import org.example.servers.controller.ServerControllerEmitter;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RestController;
+
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -20,6 +23,11 @@ public class ServerSimulator {
     @Getter
     @Setter
     private ConcurrentHashMap<String, ServerObject> servers;
+    private final ServerControllerEmitter serverControllerEmitter;
+
+    public ServerSimulator(ServerControllerEmitter serverControllerEmitter) {
+        this.serverControllerEmitter = serverControllerEmitter;
+    }
 
     private ExecutorService executorService;
 
@@ -56,11 +64,19 @@ public class ServerSimulator {
                 Thread.sleep((long) ((keyValueObject.getWeight() / serverSpeed) * 1000));
 
                 keyValueObject.setExecuted(true);
-                System.out.printf("Server %s (queue size: %s) %s\n", serverId, queueServer.size(), keyValueObject);
+
+                String message = String.format("Server %s (queue size: %s) %s",
+                        serverId, queueServer.size(), keyValueObject);
+                serverControllerEmitter.sendUpdate(serverId, message);
+
+                System.out.println(message);
             }
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupted status
-            System.out.printf("Server %s processing interrupted.\n", serverId);
+            Thread.currentThread().interrupt();
+
+            String interruptMessage = String.format("Server %s processing interrupted.", serverId);
+            serverControllerEmitter.sendUpdate(serverId, interruptMessage);
+            System.out.println(interruptMessage);
         }
     }
 }
