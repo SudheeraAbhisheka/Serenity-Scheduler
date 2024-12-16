@@ -19,52 +19,34 @@ public class ServerService {
         this.restTemplate = restTemplate;
     }
 
-    public boolean setServers(LinkedHashMap<String, Double> servers){
-        String url = "http://localhost:8084/api/set-servers";
+    public boolean setServers(int queueCapacity, LinkedHashMap<String, Double> servers){
+        String url = "http://localhost:8084/api/set-servers?queueCapacity=" + queueCapacity;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        boolean setSuccess = false;
 
         HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(servers, headers);
 
         try {
             ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
-            if (response.getStatusCode().is2xxSuccessful()) {
-                System.out.println("Servers set successfully. " + servers.size());
-                setSuccess = true;
-            } else {
-                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
-            }
+            return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
-            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
-            e.printStackTrace();
+            // Just return false; the FxController will log the message returned by this method if needed
+            return false;
         }
-
-        return setSuccess;
     }
 
     public boolean setNewServers(LinkedHashMap<String, Double> newServers){
         String url = "http://localhost:8084/api/set-new-servers";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        boolean setSuccess = false;
 
         HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(newServers, headers);
 
         try {
             ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
-            if (response.getStatusCode().is2xxSuccessful()) {
-                System.out.println("New servers set successfully.");
-                setSuccess = true;
-            } else {
-                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
-            }
+            return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
-            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
-            e.printStackTrace();
+            return false;
         }
-
-        return setSuccess;
     }
-
 }

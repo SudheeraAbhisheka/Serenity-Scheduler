@@ -1,31 +1,35 @@
 package org.example.servers_terminal.gui;
 
+import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
+import org.example.servers_terminal.config.AppConfig;
 import org.example.servers_terminal.service.ServerService;
-import org.springframework.stereotype.Component;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.util.LinkedHashMap;
 
-@Component
-public class FxController {
+public class ServerConfigApp extends Application {
+    private ServerService serverService;
+    private TextArea logArea;
 
-    private final ServerService serverService;
-    private TextArea logArea; // For displaying messages
-
-    public FxController(ServerService serverService) {
-        this.serverService = serverService;
+    @Override
+    public void init() {
+        ApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
+        serverService = context.getBean(ServerService.class);
     }
 
-    public void start(Stage stage) {
+    @Override
+    public void start(Stage primaryStage) {
+        primaryStage.setTitle("Server Configuration");
+
         LinkedHashMap<String, Double> servers = new LinkedHashMap<>();
         int defaultQueueCapacity = 1;
         final IntegerProperty queueCapacity = new SimpleIntegerProperty(defaultQueueCapacity);
@@ -108,14 +112,15 @@ public class FxController {
         exitButton.setOnAction(e -> Platform.exit());
 
         Scene scene = new Scene(gridPane, 600, 300);
-        stage.setScene(scene);
-        stage.setTitle("Server Configuration");
-        stage.show();
+        primaryStage.setScene(scene);
+        primaryStage.show();
     }
 
     private void appendLog(String message) {
-        Platform.runLater(() -> {
-            logArea.appendText(message + "\n");
-        });
+        Platform.runLater(() -> logArea.appendText(message + "\n"));
+    }
+
+    public static void main(String[] args) {
+        launch(args);
     }
 }

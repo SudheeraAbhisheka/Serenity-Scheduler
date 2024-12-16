@@ -11,7 +11,7 @@ public class UserApplication {
 
     public static void main(String[] args) {
 //        SpringApplication.run(UserApplication.class, args);
-        SpringApplication.run(UserApplication.class, args);
+//        SpringApplication.run(UserApplication.class, args);
         Application.launch(App.class, args);
     }
 

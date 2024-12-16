@@ -19,6 +19,7 @@ import java.util.concurrent.*;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.awt.AWTEventMulticaster.add;
 
@@ -77,6 +78,7 @@ public class SchedulingAlgorithms {
 
             case "weight-load-balancing":{
                 ConcurrentLinkedQueue<String> wlbQueue = Kafka_consumer.getWlbQueue();
+                AtomicInteger count = new AtomicInteger();
 
                 scheduler.scheduleAtFixedRate(() -> {
                     ArrayList<Double> taskWeights = new ArrayList<>();
@@ -91,9 +93,11 @@ public class SchedulingAlgorithms {
                         } catch (JsonProcessingException e) {
                             throw new RuntimeException(e);
                         }
+                        count.incrementAndGet();
                     }
 
-//                    weightLoadBalancing(tasks, servers);
+                    System.out.printf("Ran %s\n", count.get());
+                    count.set(0);
 
                     try {
                         String url2 = "http://servers:8084/api/wlb-algorithm";
@@ -102,7 +106,7 @@ public class SchedulingAlgorithms {
                         System.err.printf("Error sending to wlb-algorithm: %s\n", e.getMessage());
                     }
 
-                }, 3000, 10000, TimeUnit.MILLISECONDS);
+                }, 3000, 5000, TimeUnit.MILLISECONDS);
             }
 
                 break;

@@ -28,11 +28,12 @@ public class ServerController {
     }
 
     @PostMapping("/set-servers")
-    public ResponseEntity<String> setServers(@RequestBody LinkedHashMap<String, Double> initialServers) {
+    public ResponseEntity<String> setServers(@RequestParam int queueCapacity, @RequestBody LinkedHashMap<String, Double> initialServers) {
         ConcurrentHashMap<String, ServerObject> servers = new ConcurrentHashMap<>();
 
         for(Map.Entry<String, Double> entry : initialServers.entrySet()) {
-            servers.put(entry.getKey(), new ServerObject(entry.getKey(), new LinkedBlockingQueue<>(), entry.getValue()));
+            servers.put(entry.getKey(), new ServerObject(entry.getKey(), new LinkedBlockingQueue<>(queueCapacity), entry.getValue()));
+            System.out.println("Queue capacity: " + queueCapacity);
         }
 
         serverSimulator.setServers(servers);
@@ -46,7 +47,7 @@ public class ServerController {
         ConcurrentHashMap<String, ServerObject> newServersC = new ConcurrentHashMap<>();
 
         for(Map.Entry<String, Double> entry : newServersL.entrySet()) {
-            newServersC.put(entry.getKey(), new ServerObject(entry.getKey(), new LinkedBlockingQueue<>(1), entry.getValue()));
+            newServersC.put(entry.getKey(), new ServerObject(entry.getKey(), new LinkedBlockingQueue<>(), entry.getValue()));
         }
 
         serverSimulator.setNewServers(newServersC);
@@ -65,25 +66,13 @@ public class ServerController {
     @PostMapping("/wlb-algorithm")
     public ResponseEntity<String> weightLoadBalancing(@RequestBody Map<String, String> taskServersMap) throws InterruptedException, JsonProcessingException {
         for (Map.Entry<String, String> entry : taskServersMap.entrySet()) {
-            System.out.println("KeyValueObject = " + entry.getKey());
             KeyValueObject keyValueObject = objectMapper.readValue(entry.getKey(), KeyValueObject.class);
-//            KeyValueObject keyValueObject = objectMapper.convertValue(entry.getKey(), KeyValueObject.class);
             String serverId = entry.getValue();
             serverSimulator.getServers().get(serverId).getQueueServer().put(keyValueObject);
         }
+
         return new ResponseEntity<>(HttpStatus.OK);
     }
-
-//    @PostMapping("/wlb-algorithm")
-//    public ResponseEntity<String> weightLoadBalancing(@RequestBody HashMap<KeyValueObject, String> taskServersMap) throws InterruptedException, JsonProcessingException {
-//        for (Map.Entry<KeyValueObject, String> entry : taskServersMap.entrySet()) {
-//            KeyValueObject keyValueObject = entry.getKey();
-//            String serverId = entry.getValue();
-//            serverSimulator.getServers().get(serverId).getQueueServer().put(keyValueObject);
-//        }
-//
-//        return new ResponseEntity<>(HttpStatus.OK);
-//    }
 
 
     @PostMapping("/server2")

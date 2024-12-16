@@ -34,12 +34,14 @@ public class ServerSimulator {
     public void startServerSim() {
         if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdownNow();
+            System.out.println("Shutting down servers");
         }
 
         executorService = Executors.newCachedThreadPool();
 
         for (ServerObject server : servers.values()) {
             executorService.submit(() -> processServerQueue(server));
+            System.out.printf("Server %s started. Capacity = %s\n", server.getServerId(), server.getQueueServer().remainingCapacity());
         }
     }
 
