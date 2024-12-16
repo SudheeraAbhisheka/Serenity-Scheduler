@@ -1,6 +1,5 @@
 package org.example.servers_terminal.gui;
 
-import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -8,22 +7,17 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
-import org.example.servers_terminal.config.AppConfig;
 import org.example.servers_terminal.service.Server1Service;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-public class AlgorithmSelectorApp extends Application {
-    private Server1Service server1Service;
+public class AlgorithmSelectorUI {
+    private final Server1Service server1Service;
 
-    @Override
-    public void init() {
-        ApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
-        server1Service = context.getBean(Server1Service.class);
+    public AlgorithmSelectorUI(ApplicationContext context) {
+        this.server1Service = context.getBean(Server1Service.class);
     }
 
-    @Override
-    public void start(Stage primaryStage) {
+    public void show(Stage primaryStage) {
         primaryStage.setTitle("Algorithm Selector");
 
         Label algorithmLabel = new Label("Select a Scheduling Model:");
@@ -78,10 +72,5 @@ public class AlgorithmSelectorApp extends Application {
         Scene scene = new Scene(grid, 400, 200);
         primaryStage.setScene(scene);
         primaryStage.show();
-    }
-
-
-    public static void main(String[] args) {
-        launch(args);
     }
 }

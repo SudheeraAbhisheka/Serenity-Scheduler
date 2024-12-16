@@ -1,6 +1,5 @@
-package org.example.user.service;
+package org.example.servers_terminal.service;
 
-import com.example.AlgorithmRequestObj;
 import com.example.KeyValueObject;
 import javafx.application.Platform;
 import javafx.scene.control.TextArea;
@@ -8,18 +7,22 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Random;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
-public class Inputs {
+public class MessageService {
     private final RestTemplate restTemplate;
     private final AtomicInteger sendMessageCount = new AtomicInteger(0);
     private String url;
     private ScheduledExecutorService scheduler;
 
-    public Inputs(RestTemplate restTemplate) {
+    public MessageService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 

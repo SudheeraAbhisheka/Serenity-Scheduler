@@ -3,32 +3,32 @@ package org.example.servers_terminal.gui;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.stage.Stage;
+import org.example.servers_terminal.config.AppConfig;
 import org.example.servers_terminal.service.ServerService;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 public class CombinedApplication extends Application {
+    private ApplicationContext context;
+
+    @Override
+    public void init() {
+        context = new AnnotationConfigApplicationContext(AppConfig.class);
+    }
 
     @Override
     public void start(Stage primaryStage) {
-        new Thread(() -> {
-            Platform.runLater(() -> {
-                ServerConfigApp serverConfigApp = new ServerConfigApp();
-                Stage stage1 = new Stage();
-                serverConfigApp.start(stage1);
-            });
-        }).start();
+        Stage generatingMessageStage = new Stage();
+        GeneratingMessagesUI generatingMessagesUI = new GeneratingMessagesUI(context);
+        generatingMessagesUI.show(generatingMessageStage);
 
-        new Thread(() -> {
-            Platform.runLater(() -> {
-                AlgorithmSelectorApp algorithmSelectorApp = new AlgorithmSelectorApp();
-                Stage stage2 = new Stage();
-                try {
-                    algorithmSelectorApp.init(); // Ensure init() is called
-                    algorithmSelectorApp.start(stage2);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }).start();
+        Stage algorithmStage = new Stage();
+        AlgorithmSelectorUI algorithmUI = new AlgorithmSelectorUI(context);
+        algorithmUI.show(algorithmStage);
+
+        Stage serverStage = new Stage();
+        ServerConfigUI serverUI = new ServerConfigUI(context);
+        serverUI.show(serverStage);
     }
 
     public static void main(String[] args) {

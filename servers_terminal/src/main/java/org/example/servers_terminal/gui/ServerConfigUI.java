@@ -11,21 +11,21 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
 import org.example.servers_terminal.service.ServerService;
-import org.springframework.stereotype.Component;
+import org.springframework.context.ApplicationContext;
 
 import java.util.LinkedHashMap;
 
-@Component
-public class FxController {
-
+public class ServerConfigUI {
     private final ServerService serverService;
-    private TextArea logArea; // For displaying messages
+    private TextArea logArea;
 
-    public FxController(ServerService serverService) {
-        this.serverService = serverService;
+    public ServerConfigUI(ApplicationContext context) {
+        this.serverService = context.getBean(ServerService.class);
     }
 
-    public void start(Stage stage) {
+    public void show(Stage primaryStage) {
+        primaryStage.setTitle("Server Configuration");
+
         LinkedHashMap<String, Double> servers = new LinkedHashMap<>();
         int defaultQueueCapacity = 1;
         final IntegerProperty queueCapacity = new SimpleIntegerProperty(defaultQueueCapacity);
@@ -108,14 +108,11 @@ public class FxController {
         exitButton.setOnAction(e -> Platform.exit());
 
         Scene scene = new Scene(gridPane, 600, 300);
-        stage.setScene(scene);
-        stage.setTitle("Server Configuration");
-        stage.show();
+        primaryStage.setScene(scene);
+        primaryStage.show();
     }
 
     private void appendLog(String message) {
-        Platform.runLater(() -> {
-            logArea.appendText(message + "\n");
-        });
+        Platform.runLater(() -> logArea.appendText(message + "\n"));
     }
 }

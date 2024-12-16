@@ -1,31 +1,30 @@
-package org.example.user.gui;
+package org.example.servers_terminal.gui;
 
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import org.example.user.config.AppConfig;
-import org.example.user.service.Inputs;
+import org.example.servers_terminal.config.AppConfig;
+import org.example.servers_terminal.service.MessageService;
+import org.example.servers_terminal.service.Server1Service;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.web.client.RestTemplate;
 
-public class App extends Application {
+public class GeneratingMessagesUI {
+    private MessageService messageService;
 
-    private String schedulingMode;
-    private Inputs inputs;
-
-    @Override
-    public void init() {
-        ApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
-        inputs = context.getBean(Inputs.class);
+    public GeneratingMessagesUI(ApplicationContext context) {
+        this.messageService = context.getBean(MessageService.class);
     }
 
-    @Override
-    public void start(Stage primaryStage) {
+    public void show(Stage primaryStage) {
         VBox root = new VBox(10);
         root.setPadding(new Insets(10));
 
@@ -45,15 +44,15 @@ public class App extends Application {
 
         startButton.setOnAction(event -> {
             String selectedBroker = messageBrokerComboBox.getValue();
-            inputs.setMessageBroker(selectedBroker);
-            inputs.runTimedHelloWorld(outputArea);
+            messageService.setMessageBroker(selectedBroker);
+            messageService.runTimedHelloWorld(outputArea);
 
             stopButton.setDisable(false);
         });
 
         stopButton.setOnAction(event -> {
-            if (inputs != null) {
-                inputs.runTimedHelloWorld(outputArea);
+            if (messageService != null) {
+                messageService.runTimedHelloWorld(outputArea);
             }
 
             startButton.setDisable(false);
@@ -72,9 +71,5 @@ public class App extends Application {
         primaryStage.setScene(scene);
         primaryStage.setTitle("Inputs GUI");
         primaryStage.show();
-    }
-
-    public static void main(String[] args) {
-        launch(args);
     }
 }
