@@ -25,7 +25,7 @@ public class AlgorithmSelectorUI {
 
         ComboBox<String> algorithmComboBox = new ComboBox<>();
         algorithmComboBox.getItems().addAll(
-                "Priority-based Scheduling",
+                "Age-based-priority-scheduling",
                 "Complete-and-then-Fetch",
                 "Weight-load-balancing"
         );
@@ -57,6 +57,7 @@ public class AlgorithmSelectorUI {
                 String simpleAlgorithm = algorithm.toLowerCase().replace(" ", "-");
                 String simpleMessageBroker = messageBroker.toLowerCase();
 
+//                boolean success = server1Service.setAlgorithm(simpleAlgorithm, simpleMessageBroker);
                 boolean success = server1Service.setAlgorithm(simpleAlgorithm, simpleMessageBroker);
 
                 if (success) {

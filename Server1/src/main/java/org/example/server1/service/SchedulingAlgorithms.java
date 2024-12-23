@@ -21,8 +21,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static java.awt.AWTEventMulticaster.add;
-
 @Service
 public class SchedulingAlgorithms {
     private final RestTemplate restTemplate;
@@ -142,10 +140,23 @@ public class SchedulingAlgorithms {
     }
 
     public void priorityBasedScheduling() {
-        Queue<ArrivedTimeObject> queuePriority1 = new ConcurrentLinkedQueue<>();
-        Queue<ArrivedTimeObject> queuePriority2 = new ConcurrentLinkedQueue<>();
-        Queue<ArrivedTimeObject> queuePriority3 = new ConcurrentLinkedQueue<>();
         final Object lock = new Object();
+
+        LinkedHashMap<Integer, Double> thresholdTime = new LinkedHashMap<>();
+
+        thresholdTime.put(1, 10.0);
+        thresholdTime.put(2, 15.0);
+        thresholdTime.put(3, 20.0);
+
+        LinkedHashMap<Integer, Queue<ArrivedTimeObject>> queuePriorityX = new LinkedHashMap<>();
+
+        for(Integer key : thresholdTime.keySet()) {
+            queuePriorityX.put(key, new ConcurrentLinkedQueue<>());
+        }
+
+//        Queue<ArrivedTimeObject> queuePriority1 = new ConcurrentLinkedQueue<>();
+//        Queue<ArrivedTimeObject> queuePriority2 = new ConcurrentLinkedQueue<>();
+//        Queue<ArrivedTimeObject> queuePriority3 = new ConcurrentLinkedQueue<>();
 
         executorService.submit(() -> {
             while (!Thread.currentThread().isInterrupted()) {
@@ -170,11 +181,15 @@ public class SchedulingAlgorithms {
                 }
 
                 if (keyValueObject != null) {
-                    switch (keyValueObject.getPriority()) {
-                        case 1 -> queuePriority1.add(new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject));
-                        case 2 -> queuePriority2.add(new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject));
-                        case 3 -> queuePriority3.add(new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject));
-                    }
+                    queuePriorityX.get(keyValueObject.getPriority()).add(
+                            new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject)
+                    );
+
+//                    switch (keyValueObject.getPriority()) {
+//                        case 1 -> queuePriority1.add(new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject));
+//                        case 2 -> queuePriority2.add(new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject));
+//                        case 3 -> queuePriority3.add(new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject));
+//                    }
                 }
             }
         });
@@ -184,43 +199,63 @@ public class SchedulingAlgorithms {
 
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    if (!queuePriority1.isEmpty()) {
-                        long age = System.currentTimeMillis() - queuePriority1.peek().getArrivedTime();
+                    for (Map.Entry<Integer, Queue<ArrivedTimeObject>> entry : queuePriorityX.entrySet()) {
+                        Integer priority = entry.getKey();
+                        Queue<ArrivedTimeObject> priorityQueue = entry.getValue();
 
-                        if (age / 1000 > 10) {
-                            oldObjects.add(new OldObject(age, queuePriority1.poll().getKeyValueObject()));
+                        if (!priorityQueue.isEmpty()) {
+                            long age = System.currentTimeMillis() - priorityQueue.peek().getArrivedTime();
+
+                            if (age / 1000.0 > thresholdTime.get(priority)) {
+                                oldObjects.add(new OldObject(age, priorityQueue.poll().getKeyValueObject()));
+                            }
+
                         }
-
                     }
-                    if (!queuePriority2.isEmpty()) {
-                        long age = System.currentTimeMillis() - queuePriority2.peek().getArrivedTime();
 
-                        if (age / 1000 > 15) {
-                            oldObjects.add(new OldObject(age, queuePriority2.poll().getKeyValueObject()));
-                        }
-
-                    }
-                    if (!queuePriority3.isEmpty()) {
-                        long age = System.currentTimeMillis() - queuePriority3.peek().getArrivedTime();
-
-                        if (age / 1000 > 20) {
-                            oldObjects.add(new OldObject(age, queuePriority3.poll().getKeyValueObject()));
-                        }
-
-                    }
+//                    if (!queuePriority1.isEmpty()) {
+//                        long age = System.currentTimeMillis() - queuePriority1.peek().getArrivedTime();
+//
+//                        if (age / 1000 > 10) {
+//                            oldObjects.add(new OldObject(age, queuePriority1.poll().getKeyValueObject()));
+//                        }
+//
+//                    }
+//                    if (!queuePriority2.isEmpty()) {
+//                        long age = System.currentTimeMillis() - queuePriority2.peek().getArrivedTime();
+//
+//                        if (age / 1000 > 15) {
+//                            oldObjects.add(new OldObject(age, queuePriority2.poll().getKeyValueObject()));
+//                        }
+//
+//                    }
+//                    if (!queuePriority3.isEmpty()) {
+//                        long age = System.currentTimeMillis() - queuePriority3.peek().getArrivedTime();
+//
+//                        if (age / 1000 > 20) {
+//                            oldObjects.add(new OldObject(age, queuePriority3.poll().getKeyValueObject()));
+//                        }
+//
+//                    }
 
                     if (!oldObjects.isEmpty()) {
                         oldObjects.sort(Comparator.comparingLong(OldObject::getAge).reversed());
                         KeyValueObject k = oldObjects.remove(0).getKeyValueObject();
                         sendToServer2(k);
+
                     } else {
-                        if (!queuePriority1.isEmpty()) {
-                            sendToServer2(queuePriority1.poll().getKeyValueObject());
-                        } else if (!queuePriority2.isEmpty()) {
-                            sendToServer2(queuePriority2.poll().getKeyValueObject());
-                        } else if (!queuePriority3.isEmpty()) {
-                            sendToServer2(queuePriority3.poll().getKeyValueObject());
-                        } else {
+                        boolean priorityQueuesAreEmpty = true;
+
+                        for(Queue<ArrivedTimeObject> priorityQueue : queuePriorityX.values()){
+                            if(!priorityQueue.isEmpty()){
+                                sendToServer2(priorityQueue.poll().getKeyValueObject());
+                                priorityQueuesAreEmpty = false;
+
+                                break;
+                            }
+                        }
+
+                        if(priorityQueuesAreEmpty){
                             synchronized (lock) {
                                 try {
                                     waitingThreads = true;
@@ -232,6 +267,24 @@ public class SchedulingAlgorithms {
                                 }
                             }
                         }
+//                        if (!queuePriority1.isEmpty()) {
+//                            sendToServer2(queuePriority1.poll().getKeyValueObject());
+//                        } else if (!queuePriority2.isEmpty()) {
+//                            sendToServer2(queuePriority2.poll().getKeyValueObject());
+//                        } else if (!queuePriority3.isEmpty()) {
+//                            sendToServer2(queuePriority3.poll().getKeyValueObject());
+//                        } else {
+//                            synchronized (lock) {
+//                                try {
+//                                    waitingThreads = true;
+//                                    lock.wait();
+//                                } catch (InterruptedException e) {
+//                                    Thread.currentThread().interrupt();
+//                                } finally {
+//                                    waitingThreads = false;
+//                                }
+//                            }
+//                        }
                     }
 
                 } catch (Exception e) {
@@ -258,6 +311,7 @@ public class SchedulingAlgorithms {
         }
     }
 
+/*
     public HashMap<String, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) throws JsonProcessingException {
         // Greedy method
         ObjectMapper objectMapper = new ObjectMapper();
@@ -301,10 +355,11 @@ public class SchedulingAlgorithms {
 
         return taskAssignments;
     }
+*/
 
-/*
-    public Map<KeyValueObject, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) {
-        Map<KeyValueObject, String> taskAssignments = new HashMap<>();
+    public Map<String, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) throws JsonProcessingException {
+        Map<String, String> taskAssignments = new HashMap<>();
+        ObjectMapper objectMapper = new ObjectMapper();
 
         Map<String, Double> serverLoads = new HashMap<>();
         for (String serverId : servers.keySet()) {
@@ -331,18 +386,17 @@ public class SchedulingAlgorithms {
             double chosenServerSpeed = servers.get(bestServer);
             serverLoads.put(bestServer, serverLoads.get(bestServer) + (taskWeight / chosenServerSpeed));
 
-            taskAssignments.put(task, bestServer);
+            taskAssignments.put(objectMapper.writeValueAsString(task), bestServer);
 
         }
 
-        taskAssignments.forEach((task, serverId) ->
-            System.out.println("serverId: " + serverId + " taskWeight: " + task.getWeight()
-                    + " completionTime: " + task.getWeight() / servers.get(serverId))
-        );
+//        taskAssignments.forEach((task, serverId) ->
+//            System.out.println("serverId: " + serverId + " taskWeight: " + task.getWeight()
+//                    + " completionTime: " + task.getWeight() / servers.get(serverId))
+//        );
 
         return taskAssignments;
     }
-*/
 
 
 /*

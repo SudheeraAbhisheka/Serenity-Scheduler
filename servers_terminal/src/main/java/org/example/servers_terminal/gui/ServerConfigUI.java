@@ -90,7 +90,7 @@ public class ServerConfigUI {
 
         defaultButton.setOnAction(e -> {
             LinkedHashMap<String, Double> defaultServers = new LinkedHashMap<>() {{
-                put("1", 100.0);
+                put("1", 6.0);
                 put("2", 20.0);
                 put("3", 20.0);
                 put("4", 20.0);

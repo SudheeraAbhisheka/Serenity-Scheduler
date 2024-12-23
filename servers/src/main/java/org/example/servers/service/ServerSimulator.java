@@ -69,7 +69,7 @@ public class ServerSimulator {
 
                 String message = String.format("Server %s (queue size: %s) %s",
                         serverId, queueServer.size(), keyValueObject);
-                serverControllerEmitter.sendUpdate(serverId, message);
+                serverControllerEmitter.sendUpdate(message);
 
                 System.out.println(message);
             }
@@ -77,7 +77,7 @@ public class ServerSimulator {
             Thread.currentThread().interrupt();
 
             String interruptMessage = String.format("Server %s processing interrupted.", serverId);
-            serverControllerEmitter.sendUpdate(serverId, interruptMessage);
+            serverControllerEmitter.sendUpdate(interruptMessage);
             System.out.println(interruptMessage);
         }
     }

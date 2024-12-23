@@ -30,7 +30,7 @@ public class ServerService {
             ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
-            // Just return false; the FxController will log the message returned by this method if needed
+
             return false;
         }
     }
