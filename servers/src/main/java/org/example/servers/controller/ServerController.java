@@ -64,11 +64,11 @@ public class ServerController {
     }
 
     @PostMapping("/wlb-algorithm")
-    public ResponseEntity<String> weightLoadBalancing(@RequestBody Map<String, String> taskServersMap) throws InterruptedException, JsonProcessingException {
+    public ResponseEntity<String> weightLoadBalancing(@RequestBody Map<String, String> taskServersMap) throws JsonProcessingException {
         for (Map.Entry<String, String> entry : taskServersMap.entrySet()) {
             KeyValueObject keyValueObject = objectMapper.readValue(entry.getKey(), KeyValueObject.class);
             String serverId = entry.getValue();
-            serverSimulator.getServers().get(serverId).getQueueServer().put(keyValueObject);
+            serverSimulator.getServers().get(serverId).getQueueServer().add(keyValueObject);
         }
 
         return new ResponseEntity<>(HttpStatus.OK);
@@ -89,16 +89,59 @@ public class ServerController {
 
     @GetMapping("/get-servers")
     public LinkedHashMap<String, Double> getServers() {
-        LinkedHashMap<String, Double> linkedHashMap = new LinkedHashMap<>();
+        LinkedHashMap<String, Double> serversSpeeds = new LinkedHashMap<>();
 
         if(serverSimulator.getServers() != null) {
             for(ServerObject serverObject : serverSimulator.getServers().values()) {
-                linkedHashMap.put(serverObject.getServerId(), serverObject.getServerSpeed());
+                serversSpeeds.put(serverObject.getServerId(), serverObject.getServerSpeed());
             }
         }
 
-        return linkedHashMap;
+        return serversSpeeds;
     }
+
+    @GetMapping("/get-remaining-caps")
+    public LinkedHashMap<String, Integer> getRemainingCaps() {
+        LinkedHashMap<String, Integer> remainingCapacities = new LinkedHashMap<>();
+
+        if(serverSimulator.getServers() != null) {
+            for(ServerObject serverObject : serverSimulator.getServers().values()) {
+                remainingCapacities.put(
+                        serverObject.getServerId(),
+                        serverObject.getQueueServer().remainingCapacity()
+                );
+            }
+        }
+
+        return remainingCapacities;
+    }
+
+    @GetMapping("/get-server-loads")
+    public LinkedHashMap<String, Double> getServerLoads() {
+        LinkedHashMap<String, Double> serverLoads = new LinkedHashMap<>();
+
+        if(serverSimulator.getServers() != null) {
+            for(ServerObject serverObject : serverSimulator.getServers().values()) {
+                serverLoads.put(
+                        serverObject.getServerId(),
+                        getCurrentLoad(serverObject.getQueueServer(), serverObject.getServerSpeed())
+                );
+            }
+        }
+
+        return serverLoads;
+    }
+
+    private double getCurrentLoad(LinkedBlockingQueue<KeyValueObject> keyValueObjects, double serverSpeed){
+        double remainingTime = 0.0;
+
+        for(KeyValueObject keyValueObject : keyValueObjects) {
+            remainingTime += keyValueObject.getValue() * serverSpeed;
+        }
+
+        return remainingTime;
+    }
+
 
     public void notifyNewServers(LinkedHashMap<String, Double> newServers){
         String url = "http://server1:8083/consumer-one/set-new-servers";

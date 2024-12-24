@@ -90,10 +90,10 @@ public class ServerConfigUI {
 
         defaultButton.setOnAction(e -> {
             LinkedHashMap<String, Double> defaultServers = new LinkedHashMap<>() {{
-                put("1", 6.0);
-                put("2", 20.0);
-                put("3", 20.0);
-                put("4", 20.0);
+                put("1", 0.1);
+                put("2", 0.1);
+                put("3", 0.1);
+                put("4", 0.1);
             }};
             try {
                 int newQueueCapacity = Integer.parseInt(queueCapacityField.getText());

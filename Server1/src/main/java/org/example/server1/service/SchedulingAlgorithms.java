@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.server1.component.Kafka_consumer;
 import org.example.server1.component.RabbitMQ_consumer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -47,18 +49,20 @@ public class SchedulingAlgorithms {
         ResponseEntity<LinkedHashMap> response = restTemplate.getForEntity(url, LinkedHashMap.class);
         LinkedHashMap<String, Double> servers = response.getBody();
 
-        switch (algorithmRequestObj.getMessageBroker()) {
-            case "kafka": {
-                dynamicBlockingQueue = Kafka_consumer.getBlockingQueueCompleteF();
-                break;
-            }
-            case "rabbitmq": {
-                dynamicBlockingQueue = RabbitMQ_consumer.getBlockingQueueCompleteF();
-                break;
-            }
-            default:
-                throw new IllegalArgumentException("Unsupported messageBroker: " + algorithmRequestObj.getMessageBroker());
-        }
+//        switch (algorithmRequestObj.getMessageBroker()) {
+//            case "kafka": {
+//                dynamicBlockingQueue = Kafka_consumer.getBlockingQueueCompleteF();
+//                break;
+//            }
+//            case "rabbitmq": {
+//                dynamicBlockingQueue = RabbitMQ_consumer.getBlockingQueueCompleteF();
+//                break;
+//            }
+//            default:
+//                throw new IllegalArgumentException("Unsupported messageBroker: " + algorithmRequestObj.getMessageBroker());
+//        }
+
+        dynamicBlockingQueue = Kafka_consumer.getBlockingQueueCompleteF();
 
         switch (algorithmRequestObj.getAlgorithm()) {
             case "complete-and-then-fetch":{
@@ -71,35 +75,52 @@ public class SchedulingAlgorithms {
 
                 break;
             case "age-based-priority-scheduling":
-                priorityBasedScheduling();
+//                priorityBasedScheduling();
                 break;
 
             case "weight-load-balancing":{
                 ConcurrentLinkedQueue<String> wlbQueue = Kafka_consumer.getWlbQueue();
-                AtomicInteger count = new AtomicInteger();
 
                 scheduler.scheduleAtFixedRate(() -> {
-                    ArrayList<Double> taskWeights = new ArrayList<>();
                     ArrayList<KeyValueObject> tasks = new ArrayList<>();
                     ObjectMapper objectMapper = new ObjectMapper();
 
+                    LinkedHashMap<String, Integer> remainingCaps = restTemplate.exchange(
+                            "http://servers:8084/api/get-remaining-caps",
+                            HttpMethod.GET,
+                            null,
+                            new ParameterizedTypeReference<LinkedHashMap<String, Integer>>() {}
+                    ).getBody();
+
+                    LinkedHashMap<String, Double> currentServerLoads = restTemplate.exchange(
+                            "http://servers:8084/api/get-server-loads",
+                            HttpMethod.GET,
+                            null,
+                            new ParameterizedTypeReference<LinkedHashMap<String, Double>>() {}
+                    ).getBody();
+
                     String message;
-                    while ((message = wlbQueue.poll()) != null) {
+
+                    assert remainingCaps != null;
+                    int totalRemainingTime = remainingCaps.values().stream().mapToInt(Integer::intValue).sum();
+
+                    System.out.println("Total remaining: " + totalRemainingTime);
+
+                    while ((wlbQueue.peek()) != null && totalRemainingTime > 0 ) {
+                        message = wlbQueue.poll();
                         try {
                             KeyValueObject keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
                             tasks.add(keyValueObject);
                         } catch (JsonProcessingException e) {
                             throw new RuntimeException(e);
                         }
-                        count.incrementAndGet();
-                    }
 
-                    System.out.printf("Ran %s\n", count.get());
-                    count.set(0);
+                        totalRemainingTime--;
+                    }
 
                     try {
                         String url2 = "http://servers:8084/api/wlb-algorithm";
-                        restTemplate.postForEntity(url2, weightLoadBalancing(tasks, servers), Map.class);
+                        restTemplate.postForEntity(url2, weightLoadBalancing(tasks, servers, remainingCaps, currentServerLoads), Map.class);
                     } catch (Exception e) {
                         System.err.printf("Error sending to wlb-algorithm: %s\n", e.getMessage());
                     }
@@ -139,24 +160,14 @@ public class SchedulingAlgorithms {
         }
     }
 
-    public void priorityBasedScheduling() {
+    public void priorityBasedScheduling(LinkedHashMap<Integer, Double> thresholdTime) {
         final Object lock = new Object();
-
-        LinkedHashMap<Integer, Double> thresholdTime = new LinkedHashMap<>();
-
-        thresholdTime.put(1, 10.0);
-        thresholdTime.put(2, 15.0);
-        thresholdTime.put(3, 20.0);
 
         LinkedHashMap<Integer, Queue<ArrivedTimeObject>> queuePriorityX = new LinkedHashMap<>();
 
         for(Integer key : thresholdTime.keySet()) {
             queuePriorityX.put(key, new ConcurrentLinkedQueue<>());
         }
-
-//        Queue<ArrivedTimeObject> queuePriority1 = new ConcurrentLinkedQueue<>();
-//        Queue<ArrivedTimeObject> queuePriority2 = new ConcurrentLinkedQueue<>();
-//        Queue<ArrivedTimeObject> queuePriority3 = new ConcurrentLinkedQueue<>();
 
         executorService.submit(() -> {
             while (!Thread.currentThread().isInterrupted()) {
@@ -175,7 +186,7 @@ public class SchedulingAlgorithms {
                     keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
 
                 } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt(); // Exit the loop
+                    Thread.currentThread().interrupt();
                 } catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                 }
@@ -185,11 +196,6 @@ public class SchedulingAlgorithms {
                             new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject)
                     );
 
-//                    switch (keyValueObject.getPriority()) {
-//                        case 1 -> queuePriority1.add(new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject));
-//                        case 2 -> queuePriority2.add(new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject));
-//                        case 3 -> queuePriority3.add(new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject));
-//                    }
                 }
             }
         });
@@ -212,31 +218,6 @@ public class SchedulingAlgorithms {
 
                         }
                     }
-
-//                    if (!queuePriority1.isEmpty()) {
-//                        long age = System.currentTimeMillis() - queuePriority1.peek().getArrivedTime();
-//
-//                        if (age / 1000 > 10) {
-//                            oldObjects.add(new OldObject(age, queuePriority1.poll().getKeyValueObject()));
-//                        }
-//
-//                    }
-//                    if (!queuePriority2.isEmpty()) {
-//                        long age = System.currentTimeMillis() - queuePriority2.peek().getArrivedTime();
-//
-//                        if (age / 1000 > 15) {
-//                            oldObjects.add(new OldObject(age, queuePriority2.poll().getKeyValueObject()));
-//                        }
-//
-//                    }
-//                    if (!queuePriority3.isEmpty()) {
-//                        long age = System.currentTimeMillis() - queuePriority3.peek().getArrivedTime();
-//
-//                        if (age / 1000 > 20) {
-//                            oldObjects.add(new OldObject(age, queuePriority3.poll().getKeyValueObject()));
-//                        }
-//
-//                    }
 
                     if (!oldObjects.isEmpty()) {
                         oldObjects.sort(Comparator.comparingLong(OldObject::getAge).reversed());
@@ -267,24 +248,6 @@ public class SchedulingAlgorithms {
                                 }
                             }
                         }
-//                        if (!queuePriority1.isEmpty()) {
-//                            sendToServer2(queuePriority1.poll().getKeyValueObject());
-//                        } else if (!queuePriority2.isEmpty()) {
-//                            sendToServer2(queuePriority2.poll().getKeyValueObject());
-//                        } else if (!queuePriority3.isEmpty()) {
-//                            sendToServer2(queuePriority3.poll().getKeyValueObject());
-//                        } else {
-//                            synchronized (lock) {
-//                                try {
-//                                    waitingThreads = true;
-//                                    lock.wait();
-//                                } catch (InterruptedException e) {
-//                                    Thread.currentThread().interrupt();
-//                                } finally {
-//                                    waitingThreads = false;
-//                                }
-//                            }
-//                        }
                     }
 
                 } catch (Exception e) {
@@ -357,13 +320,16 @@ public class SchedulingAlgorithms {
     }
 */
 
-    public Map<String, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) throws JsonProcessingException {
+    public Map<String, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers,
+                                                   Map<String, Integer> remainingCaps, Map<String, Double> currentServerLoads) throws JsonProcessingException {
         Map<String, String> taskAssignments = new HashMap<>();
         ObjectMapper objectMapper = new ObjectMapper();
 
         Map<String, Double> serverLoads = new HashMap<>();
         for (String serverId : servers.keySet()) {
-            serverLoads.put(serverId, 0.0);
+            serverLoads.put(
+                    serverId,
+                    currentServerLoads.getOrDefault(serverId, 0.0));
         }
 
         for (KeyValueObject task : tasks) {
@@ -373,6 +339,11 @@ public class SchedulingAlgorithms {
 
             for (Map.Entry<String, Double> entry : servers.entrySet()) {
                 String serverId = entry.getKey();
+
+                if(remainingCaps.get(serverId) == 0){
+                    continue;
+                }
+
                 double serverSpeed = entry.getValue();
                 double currentLoad = serverLoads.get(serverId);
 
@@ -385,15 +356,11 @@ public class SchedulingAlgorithms {
 
             double chosenServerSpeed = servers.get(bestServer);
             serverLoads.put(bestServer, serverLoads.get(bestServer) + (taskWeight / chosenServerSpeed));
+            remainingCaps.put(bestServer, remainingCaps.get(bestServer) - 1);
 
             taskAssignments.put(objectMapper.writeValueAsString(task), bestServer);
 
         }
-
-//        taskAssignments.forEach((task, serverId) ->
-//            System.out.println("serverId: " + serverId + " taskWeight: " + task.getWeight()
-//                    + " completionTime: " + task.getWeight() / servers.get(serverId))
-//        );
 
         return taskAssignments;
     }

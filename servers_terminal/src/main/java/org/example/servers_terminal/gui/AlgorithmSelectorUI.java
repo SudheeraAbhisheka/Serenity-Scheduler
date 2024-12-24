@@ -10,6 +10,8 @@ import javafx.stage.Stage;
 import org.example.servers_terminal.service.Server1Service;
 import org.springframework.context.ApplicationContext;
 
+import java.util.LinkedHashMap;
+
 public class AlgorithmSelectorUI {
     private final Server1Service server1Service;
 
@@ -57,8 +59,15 @@ public class AlgorithmSelectorUI {
                 String simpleAlgorithm = algorithm.toLowerCase().replace(" ", "-");
                 String simpleMessageBroker = messageBroker.toLowerCase();
 
-//                boolean success = server1Service.setAlgorithm(simpleAlgorithm, simpleMessageBroker);
                 boolean success = server1Service.setAlgorithm(simpleAlgorithm, simpleMessageBroker);
+
+//                LinkedHashMap<Integer, Double> thresholdTime = new LinkedHashMap<>();
+//
+//                thresholdTime.put(1, 10.0);
+//                thresholdTime.put(2, 15.0);
+//                thresholdTime.put(3, 20.0);
+//
+//                boolean success = server1Service.setPriorityScheduling(thresholdTime);
 
                 if (success) {
                     responseLabel.setText("Algorithm set successfully - " + algorithm);

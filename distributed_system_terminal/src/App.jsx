@@ -33,16 +33,34 @@ function App() {
         }
     }, [messages]);
 
+    const clearMessages = () => {
+        setMessages([]);
+    };
+
     return (
         <div style={{ margin: '20px' }}>
             <h1>Server Status Dashboard</h1>
+            <button
+                onClick={clearMessages}
+                style={{
+                    marginBottom: '10px',
+                    padding: '5px 10px',
+                    backgroundColor: '#007BFF',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                }}
+            >
+                Clear Terminal
+            </button>
             <div
                 ref={messagesContainerRef}
                 style={{
                     border: '1px solid #aaa',
                     padding: '10px',
                     height: '300px',
-                    overflowY: 'auto'
+                    overflowY: 'auto',
                 }}
             >
                 <h3>All Messages</h3>

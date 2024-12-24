@@ -37,6 +37,13 @@ public class ConsumerOneController {
         kafka_consumer.setSchedulingAlgorithm(algorithmRequestObj.getAlgorithm());
     }
 
+    @PostMapping("/set-priority-scheduling")
+    public void setPriorityBased(@RequestBody LinkedHashMap<Integer, Double> thresholdTime) {
+        schedulingAlgorithms.priorityBasedScheduling(thresholdTime);
+        kafka_consumer.setSchedulingAlgorithm("age-based-priority-scheduling");
+
+    }
+
     @PostMapping("/set-new-servers")
     public void addServers(@RequestBody LinkedHashMap<String, Double> newServers) {
         System.out.println("newServers: " + newServers);
