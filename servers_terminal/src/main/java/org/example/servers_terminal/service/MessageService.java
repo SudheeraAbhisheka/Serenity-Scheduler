@@ -53,17 +53,22 @@ public class MessageService {
 
         ArrayList<Integer> scheduleRate = new ArrayList<>();
         scheduleRate.add(5);
-        scheduleRate.add(10);
-        scheduleRate.add(15);
+//        scheduleRate.add(10);
+//        scheduleRate.add(15);
 
         scheduler = Executors.newScheduledThreadPool(scheduleRate.size() + 1);
         BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
         Random random = new Random(12345);
         sendMessageCount.set(0);
 
+        /* ******************************************************** */
+        long startTime = System.currentTimeMillis();
+
         for (int milliSeconds : scheduleRate) {
             scheduler.submit(() -> {
-                int countLimit = 5;
+
+                System.out.println("started");
+                int countLimit = 7;
                 while (countLimit > 0) {
                     KeyValueObject keyValueObject = new KeyValueObject(
                             String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
@@ -73,18 +78,22 @@ public class MessageService {
                             1 + random.nextInt(3)
                     );
                     sendMessage_topic_1to10(keyValueObject);
-                    messageQueue.add("From thread " + Thread.currentThread().getName() + "\n" + keyValueObject + "\n");
+//                    messageQueue.add("From thread " + Thread.currentThread().getName() + "\n" + keyValueObject + "\n");
+//                    messageQueue.add(Integer.toString(sendMessageCount.get()));
                     sendMessageCount.incrementAndGet();
 
-                    try {
-                        Thread.sleep(milliSeconds);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
+//                    try {
+//                        Thread.sleep(milliSeconds);
+//                    } catch (InterruptedException e) {
+//                        Thread.currentThread().interrupt();
+//                        break;
+//                    }
 
                     countLimit--;
                 }
+
+                System.out.println((System.currentTimeMillis() - startTime)/1000.0);
+                System.out.println(sendMessageCount);
             });
         }
 

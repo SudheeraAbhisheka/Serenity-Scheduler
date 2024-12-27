@@ -59,17 +59,33 @@ public class AlgorithmSelectorUI {
                 String simpleAlgorithm = algorithm.toLowerCase().replace(" ", "-");
                 String simpleMessageBroker = messageBroker.toLowerCase();
 
-                boolean success = server1Service.setAlgorithm(simpleAlgorithm, simpleMessageBroker);
+                boolean success = server1Service.setMessageBroker(simpleMessageBroker);
+                boolean success2 = false;
 
-//                LinkedHashMap<Integer, Double> thresholdTime = new LinkedHashMap<>();
-//
-//                thresholdTime.put(1, 10.0);
-//                thresholdTime.put(2, 15.0);
-//                thresholdTime.put(3, 20.0);
-//
-//                boolean success = server1Service.setPriorityScheduling(thresholdTime);
+                switch (simpleAlgorithm){
+                    case "complete-and-then-fetch":{
+                        success2 = server1Service.setCompleteAndFetch();
+                    }
+                    break;
 
-                if (success) {
+                    case "age-based-priority-scheduling":{
+                        LinkedHashMap<Integer, Double> thresholdTime = new LinkedHashMap<>();
+
+                        thresholdTime.put(1, 10.0);
+                        thresholdTime.put(2, 15.0);
+                        thresholdTime.put(3, 20.0);
+
+                        success2 = server1Service.setPriorityScheduling(thresholdTime);
+                    }
+                    break;
+
+                    case "weight-load-balancing":{
+                        success2 = server1Service.setWorkLoadBalancing(5000);
+                    }
+                }
+
+
+                if (success && success2) {
                     responseLabel.setText("Algorithm set successfully - " + algorithm);
                 } else {
                     responseLabel.setText("Failed to set algorithm.");

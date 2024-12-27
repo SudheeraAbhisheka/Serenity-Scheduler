@@ -1,7 +1,6 @@
 package org.example.server1.controller;
 
 import com.example.AlgorithmRequestObj;
-import com.example.KeyValueObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.server1.component.Kafka_consumer;
@@ -19,6 +18,7 @@ public class ConsumerOneController {
     private final SchedulingAlgorithms schedulingAlgorithms;
     private final RabbitMQ_consumer rabbitMQ_consumer;
     private final Kafka_consumer kafka_consumer;
+    private String messageBroker;
 
     @Autowired
     public ConsumerOneController(SchedulingAlgorithms schedulingAlgorithms, RabbitMQ_consumer rabbitMQ_consumer, Kafka_consumer kafka_consumer) {
@@ -27,26 +27,54 @@ public class ConsumerOneController {
         this.kafka_consumer = kafka_consumer;
     }
 
-    @PostMapping("/set-algorithm")
-    public void setAlgorithm(@RequestBody String algorithmRequest) throws JsonProcessingException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        AlgorithmRequestObj algorithmRequestObj = objectMapper.readValue(algorithmRequest, AlgorithmRequestObj.class);
+    @PostMapping("/set-message-broker")
+    public void setMessageBroker(@RequestBody String messageBroker) {
+        this.messageBroker = messageBroker;
+        schedulingAlgorithms.setMessageBroker(messageBroker);
+    }
 
-        schedulingAlgorithms.setSchedulingAlgorithm(algorithmRequestObj);
-        rabbitMQ_consumer.setSchedulingAlgorithm(algorithmRequestObj.getAlgorithm());
-        kafka_consumer.setSchedulingAlgorithm(algorithmRequestObj.getAlgorithm());
+    @PostMapping("/set-complete-and-fetch")
+    public void setCompleteAndFetch() {
+        schedulingAlgorithms.executeCATF();
+
+        if(messageBroker.equals("kafka")){
+            kafka_consumer.setSchedulingAlgorithm("complete-and-then-fetch");
+
+            System.out.println("messageBroker = "+messageBroker);
+        }
+        else if(messageBroker.equals("rabbitmq")){
+            rabbitMQ_consumer.setSchedulingAlgorithm("complete-and-then-fetch");
+        }
     }
 
     @PostMapping("/set-priority-scheduling")
     public void setPriorityBased(@RequestBody LinkedHashMap<Integer, Double> thresholdTime) {
         schedulingAlgorithms.priorityBasedScheduling(thresholdTime);
-        kafka_consumer.setSchedulingAlgorithm("age-based-priority-scheduling");
+
+        if(messageBroker.equals("kafka")){
+            kafka_consumer.setSchedulingAlgorithm("age-based-priority-scheduling");
+        }
+        else if(messageBroker.equals("rabbitmq")){
+            rabbitMQ_consumer.setSchedulingAlgorithm("age-based-priority-scheduling");
+        }
 
     }
 
-    @PostMapping("/set-new-servers")
-    public void addServers(@RequestBody LinkedHashMap<String, Double> newServers) {
-        System.out.println("newServers: " + newServers);
-        schedulingAlgorithms.addNewServersCATFModel(newServers);
+    @PostMapping("/set-work-load-balancing")
+    public void setWlbFixedRate_(@RequestBody int fixedRate) {
+        schedulingAlgorithms.weightedLoadBalancing(fixedRate);
+
+        if(messageBroker.equals("kafka")){
+            kafka_consumer.setSchedulingAlgorithm("weight-load-balancing");
+        }
+        else if(messageBroker.equals("rabbitmq")){
+            rabbitMQ_consumer.setSchedulingAlgorithm("weight-load-balancing");
+        }
+    }
+
+    @PostMapping("/notify-new-servers")
+    public void addServers(@RequestBody String x) {
+        schedulingAlgorithms.notifyNewServersCATFModel();
+        System.out.println("Notified new servers");
     }
 }

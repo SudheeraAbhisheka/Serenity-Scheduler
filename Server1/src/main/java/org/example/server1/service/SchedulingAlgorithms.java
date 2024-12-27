@@ -2,139 +2,139 @@ package org.example.server1.service;
 
 import com.example.AlgorithmRequestObj;
 import com.example.KeyValueObject;
-import com.example.ServerObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Setter;
 import org.example.server1.component.Kafka_consumer;
 import org.example.server1.component.RabbitMQ_consumer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.security.Key;
 import java.util.*;
 import java.util.concurrent.*;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class SchedulingAlgorithms {
     private final RestTemplate restTemplate;
     private boolean waitingThreads = false;
+
     private BlockingQueue<String> dynamicBlockingQueue;
+    private ConcurrentLinkedQueue<String> wlbQueue;
+    private BlockingQueue<String> blockingQueuePriorityS;
+
+    private final LinkedHashMap<String, Boolean> runningServers;
 
     private ExecutorService executorService;
     ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private LinkedHashMap<String, Double> servers;
 
     @Autowired
     public SchedulingAlgorithms(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
-        this.executorService = Executors.newCachedThreadPool();
+        executorService = Executors.newCachedThreadPool();
+        runningServers = new LinkedHashMap<>();
     }
 
-    public void setSchedulingAlgorithm(AlgorithmRequestObj algorithmRequestObj) {
+    public void restarting() {
         if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdownNow();
         }
 
         this.executorService = Executors.newCachedThreadPool();
+    }
 
-        String url = "http://servers:8084/api/get-servers";
-        ResponseEntity<LinkedHashMap> response = restTemplate.getForEntity(url, LinkedHashMap.class);
-        LinkedHashMap<String, Double> servers = response.getBody();
-
-//        switch (algorithmRequestObj.getMessageBroker()) {
-//            case "kafka": {
-//                dynamicBlockingQueue = Kafka_consumer.getBlockingQueueCompleteF();
-//                break;
-//            }
-//            case "rabbitmq": {
-//                dynamicBlockingQueue = RabbitMQ_consumer.getBlockingQueueCompleteF();
-//                break;
-//            }
-//            default:
-//                throw new IllegalArgumentException("Unsupported messageBroker: " + algorithmRequestObj.getMessageBroker());
-//        }
-
-        dynamicBlockingQueue = Kafka_consumer.getBlockingQueueCompleteF();
-
-        switch (algorithmRequestObj.getAlgorithm()) {
-            case "complete-and-then-fetch":{
-                for (String serverId : servers.keySet()) {
-                    executorService.submit(() -> {
-                        completeAndThenFetchModel(serverId);
-                    });
-                }
+    public void setMessageBroker(String messageBroker){
+        servers = fetchServers();
+        switch (messageBroker) {
+            case "kafka": {
+                dynamicBlockingQueue = Kafka_consumer.getBlockingQueueCompleteF();
+                wlbQueue = Kafka_consumer.getWlbQueue();
+                blockingQueuePriorityS = Kafka_consumer.getBlockingQueuePriorityS();
+                break;
             }
-
+            case "rabbitmq": {
+                dynamicBlockingQueue = RabbitMQ_consumer.getBlockingQueueCompleteF();
+                wlbQueue = RabbitMQ_consumer.getWlbQueue();
+                blockingQueuePriorityS = Kafka_consumer.getBlockingQueuePriorityS();
                 break;
-            case "age-based-priority-scheduling":
-//                priorityBasedScheduling();
-                break;
-
-            case "weight-load-balancing":{
-                ConcurrentLinkedQueue<String> wlbQueue = Kafka_consumer.getWlbQueue();
-
-                scheduler.scheduleAtFixedRate(() -> {
-                    ArrayList<KeyValueObject> tasks = new ArrayList<>();
-                    ObjectMapper objectMapper = new ObjectMapper();
-
-                    LinkedHashMap<String, Integer> remainingCaps = restTemplate.exchange(
-                            "http://servers:8084/api/get-remaining-caps",
-                            HttpMethod.GET,
-                            null,
-                            new ParameterizedTypeReference<LinkedHashMap<String, Integer>>() {}
-                    ).getBody();
-
-                    LinkedHashMap<String, Double> currentServerLoads = restTemplate.exchange(
-                            "http://servers:8084/api/get-server-loads",
-                            HttpMethod.GET,
-                            null,
-                            new ParameterizedTypeReference<LinkedHashMap<String, Double>>() {}
-                    ).getBody();
-
-                    String message;
-
-                    assert remainingCaps != null;
-                    int totalRemainingTime = remainingCaps.values().stream().mapToInt(Integer::intValue).sum();
-
-                    System.out.println("Total remaining: " + totalRemainingTime);
-
-                    while ((wlbQueue.peek()) != null && totalRemainingTime > 0 ) {
-                        message = wlbQueue.poll();
-                        try {
-                            KeyValueObject keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
-                            tasks.add(keyValueObject);
-                        } catch (JsonProcessingException e) {
-                            throw new RuntimeException(e);
-                        }
-
-                        totalRemainingTime--;
-                    }
-
-                    try {
-                        String url2 = "http://servers:8084/api/wlb-algorithm";
-                        restTemplate.postForEntity(url2, weightLoadBalancing(tasks, servers, remainingCaps, currentServerLoads), Map.class);
-                    } catch (Exception e) {
-                        System.err.printf("Error sending to wlb-algorithm: %s\n", e.getMessage());
-                    }
-
-                }, 3000, 5000, TimeUnit.MILLISECONDS);
             }
-
-                break;
             default:
-                throw new IllegalArgumentException("Unsupported algorithm: " + algorithmRequestObj.getAlgorithm());
+                throw new IllegalArgumentException("Unsupported messageBroker: " + messageBroker);
         }
     }
 
-    public void completeAndThenFetchModel(String serverId) {
+    private LinkedHashMap<String, Double> fetchServers(){
+        return restTemplate.exchange(
+                "http://servers:8084/api/get-servers",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<LinkedHashMap<String, Double>>() {}
+        ).getBody();
+    }
+
+    public void weightedLoadBalancing(int wlbFixedRate){
+        scheduler.scheduleAtFixedRate(() -> {
+            ArrayList<KeyValueObject> tasks = new ArrayList<>();
+            ObjectMapper objectMapper = new ObjectMapper();
+
+            LinkedHashMap<String, Integer> remainingCaps = restTemplate.exchange(
+                    "http://servers:8084/api/get-remaining-caps",
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<LinkedHashMap<String, Integer>>() {}
+            ).getBody();
+
+            LinkedHashMap<String, Double> currentServerLoads = restTemplate.exchange(
+                    "http://servers:8084/api/get-server-loads",
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<LinkedHashMap<String, Double>>() {}
+            ).getBody();
+
+            String message;
+
+            assert remainingCaps != null;
+            int totalRemainingTime = remainingCaps.values().stream().mapToInt(Integer::intValue).sum();
+
+            while ((wlbQueue.peek()) != null && totalRemainingTime > 0 ) {
+                message = wlbQueue.poll();
+                try {
+                    KeyValueObject keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
+                    tasks.add(keyValueObject);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+
+                totalRemainingTime--;
+            }
+
+            try {
+                String url2 = "http://servers:8084/api/wlb-algorithm";
+                restTemplate.postForEntity(url2, weightLoadBalancing(tasks, servers, remainingCaps, currentServerLoads), Map.class);
+            } catch (Exception e) {
+                System.err.printf("Error sending to wlb-algorithm: %s\n", e.getMessage());
+            }
+
+        }, 0, wlbFixedRate, TimeUnit.MILLISECONDS);
+    }
+
+    public void executeCATF(){
+        for (String serverId : servers.keySet()) {
+            if(!runningServers.containsKey(serverId)){
+                executorService.submit(() -> {completeAndThenFetchModel(serverId);});
+                runningServers.put(serverId, null);
+            }
+        }
+
+    }
+
+    private void completeAndThenFetchModel(String serverId) {
         ObjectMapper objectMapper = new ObjectMapper();
 
         while (!Thread.currentThread().isInterrupted()) {
@@ -176,7 +176,7 @@ public class SchedulingAlgorithms {
                 String message;
 
                 try {
-                    message = Kafka_consumer.getBlockingQueuePriorityS().take();
+                    message = blockingQueuePriorityS.take();
 
                     if (waitingThreads) {
                         synchronized (lock) {
@@ -266,12 +266,8 @@ public class SchedulingAlgorithms {
         }
     }
 
-    public void addNewServersCATFModel(LinkedHashMap<String, Double> newServers){
-        for (String serverId : newServers.keySet()) {
-            executorService.submit(() -> {
-                completeAndThenFetchModel(serverId);
-            });
-        }
+    public void notifyNewServersCATFModel(){
+        servers = fetchServers();
     }
 
 /*
@@ -320,7 +316,7 @@ public class SchedulingAlgorithms {
     }
 */
 
-    public Map<String, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers,
+    private Map<String, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers,
                                                    Map<String, Integer> remainingCaps, Map<String, Double> currentServerLoads) throws JsonProcessingException {
         Map<String, String> taskAssignments = new HashMap<>();
         ObjectMapper objectMapper = new ObjectMapper();

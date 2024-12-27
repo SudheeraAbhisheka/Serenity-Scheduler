@@ -1,6 +1,5 @@
 package org.example.servers_terminal.service;
 
-import com.example.AlgorithmRequestObj;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -15,26 +14,47 @@ public class Server1Service {
         this.restTemplate = restTemplate;
     }
 
-    public boolean setAlgorithm(String algorithm, String messageBroker){
-        String url = "http://localhost:8083/consumer-one/set-algorithm";
+    public boolean setMessageBroker(String messageBroker){
+        String url = "http://localhost:8083/consumer-one/set-message-broker";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         boolean setSuccess = false;
 
-        AlgorithmRequestObj requestBody = new AlgorithmRequestObj(algorithm, messageBroker);
-
-        HttpEntity<AlgorithmRequestObj> request = new HttpEntity<>(requestBody, headers);
+        HttpEntity<String> request = new HttpEntity<>(messageBroker, headers);
 
         try {
             ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
             if (response.getStatusCode().is2xxSuccessful()) {
-                System.out.println("Algorithm set successfully - " + algorithm);
+                System.out.println("Message broker set successfully - " + messageBroker);
                 setSuccess = true;
             } else {
                 System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
             }
         } catch (Exception e) {
             System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return setSuccess;
+    }
+
+    public boolean setCompleteAndFetch() {
+        String url = "http://localhost:8083/consumer-one/set-complete-and-fetch";
+        HttpHeaders headers = new HttpHeaders();
+        boolean setSuccess = false;
+
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println("Priority-based scheduling set successfully");
+                setSuccess = true;
+            } else {
+                System.out.println("Failed to set Priority-based scheduling. Status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            System.out.println("Exception occurred while setting PBS: " + e.getMessage());
             e.printStackTrace();
         }
 
@@ -48,6 +68,30 @@ public class Server1Service {
         boolean setSuccess = false;
 
         HttpEntity<LinkedHashMap<Integer, Double>> request = new HttpEntity<>(thresholdTime, headers);
+
+        try {
+            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println("Priority based scheduling set successfully");
+                setSuccess = true;
+            } else {
+                System.out.println("Failed to set Priority based scheduling. Status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            System.out.println("Exception occurred while setting pbs: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return setSuccess;
+    }
+
+    public boolean setWorkLoadBalancing(int fixedRate){
+        String url = "http://localhost:8083/consumer-one/set-work-load-balancing";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        boolean setSuccess = false;
+
+        HttpEntity<Integer> request = new HttpEntity<>(fixedRate, headers);
 
         try {
             ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);

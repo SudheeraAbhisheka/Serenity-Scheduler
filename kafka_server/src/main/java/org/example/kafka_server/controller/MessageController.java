@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import com.example.KeyValueObject;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
 @RestController
 public class MessageController {
 
@@ -18,14 +21,19 @@ public class MessageController {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
-
     public MessageController(KafkaProducerService kafkaProducerService) {
         this.kafkaProducerService = kafkaProducerService;
     }
 
     @PostMapping("/kafka-server/topic_1-10")
-    public String kafka_sendMessage1(@RequestBody KeyValueObject keyValueObject) {
+    public String kafka_sendMessage1(@RequestBody KeyValueObject keyValueObject) throws InterruptedException {
         kafkaProducerService.sendMessage("topic_1-10", keyValueObject);
+
+//        System.out.println(Thread.currentThread().getId() + " started");
+//        Thread.sleep(500);
+//        System.out.println(Thread.currentThread().getId());
+//        System.out.println();
+
         return "Message sent!";
     }
 //

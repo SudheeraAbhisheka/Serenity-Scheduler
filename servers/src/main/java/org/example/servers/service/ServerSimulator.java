@@ -13,6 +13,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -23,36 +25,40 @@ public class ServerSimulator {
     @Getter
     @Setter
     private ConcurrentHashMap<String, ServerObject> servers;
+    private final LinkedHashMap<String, Boolean> runningServers;
     private final ServerControllerEmitter serverControllerEmitter;
+    private ExecutorService executorService;
 
     public ServerSimulator(ServerControllerEmitter serverControllerEmitter) {
         this.serverControllerEmitter = serverControllerEmitter;
+        executorService = Executors.newCachedThreadPool();
+        runningServers = new LinkedHashMap<>();
     }
 
-    private ExecutorService executorService;
-
     public void startServerSim() {
-        if (executorService != null && !executorService.isShutdown()) {
-            executorService.shutdownNow();
-            System.out.println("Shutting down servers");
-        }
+//        if (executorService != null && !executorService.isShutdown()) {
+//            executorService.shutdownNow();
+//            System.out.println("Shutting down servers");
+//        }
 
-        executorService = Executors.newCachedThreadPool();
+//        executorService = Executors.newCachedThreadPool();
 
         for (ServerObject server : servers.values()) {
-            executorService.submit(() -> processServerQueue(server));
-            System.out.printf("Server %s started. Capacity = %s\n", server.getServerId(), server.getQueueServer().remainingCapacity());
+            if(!runningServers.containsKey(server.getServerId())){
+                executorService.submit(() -> processServerQueue(server));
+                runningServers.put(server.getServerId(), null);
+
+                System.out.printf("Server %s started. Capacity = %s\n", server.getServerId(), server.getQueueServer().remainingCapacity());
+            }
         }
     }
 
     public void setNewServers(ConcurrentHashMap<String, ServerObject> newServers) {
-        if (!executorService.isShutdown()) {
-            executorService.shutdownNow();
+        for (ServerObject newServer : newServers.values()) {
+            executorService.submit(() -> processServerQueue(newServer));
+            System.out.printf("Server %s started. Capacity = %s\n", newServer.getServerId(), newServer.getQueueServer().remainingCapacity());
         }
         servers.putAll(newServers);
-        for (ServerObject server : newServers.values()) {
-            executorService.submit(() -> processServerQueue(server));
-        }
     }
 
     private void processServerQueue(ServerObject server) {

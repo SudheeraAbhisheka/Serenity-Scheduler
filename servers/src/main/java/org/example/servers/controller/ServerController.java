@@ -2,6 +2,7 @@ package org.example.servers.controller;
 
 import com.example.KeyValueObject;
 import com.example.ServerObject;
+import com.example.SpeedAndCapObj;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,16 +28,34 @@ public class ServerController {
         this.serverSimulator = serverSimulator;
     }
 
-    @PostMapping("/set-servers")
-    public ResponseEntity<String> setServers(@RequestParam int queueCapacity, @RequestBody LinkedHashMap<String, Double> initialServers) {
+    @PostMapping("/set-servers-default")
+    public ResponseEntity<String> setServersDefault(@RequestParam int noOfQueues, @RequestBody SpeedAndCapObj speedAndCapObj) {
         ConcurrentHashMap<String, ServerObject> servers = new ConcurrentHashMap<>();
 
-        for(Map.Entry<String, Double> entry : initialServers.entrySet()) {
-            servers.put(entry.getKey(), new ServerObject(entry.getKey(), new LinkedBlockingQueue<>(queueCapacity), entry.getValue()));
-            System.out.println("Queue capacity: " + queueCapacity);
+        for (int i = 0; i < noOfQueues; i++) {
+            servers.put(
+                    Integer.toString(i+1),
+                    new ServerObject(Integer.toString(i+1), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed()));
         }
 
         serverSimulator.setServers(servers);
+        serverSimulator.startServerSim();
+
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @PostMapping("/set-servers-onebyone")
+    public ResponseEntity<String> setServersOneByOne(@RequestBody SpeedAndCapObj speedAndCapObj) {
+        if (serverSimulator.getServers() == null) {
+            serverSimulator.setServers(new ConcurrentHashMap<>());
+        }
+
+        int i = serverSimulator.getServers().size();
+
+        serverSimulator.getServers().put(
+                Integer.toString(i+1),
+                new ServerObject(Integer.toString(i+1), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed()));
+
         serverSimulator.startServerSim();
 
         return new ResponseEntity<>(HttpStatus.OK);
@@ -144,10 +163,9 @@ public class ServerController {
 
 
     public void notifyNewServers(LinkedHashMap<String, Double> newServers){
-        String url = "http://server1:8083/consumer-one/set-new-servers";
+        String url = "http://server1:8083/consumer-one/notify-new-servers";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        boolean setSuccess = false;
 
         HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(newServers, headers);
 
@@ -155,7 +173,7 @@ public class ServerController {
             ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
             if (response.getStatusCode().is2xxSuccessful()) {
                 System.out.println("New servers set successfully.");
-                setSuccess = true;
+//                setSuccess = true;
             } else {
                 System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
             }

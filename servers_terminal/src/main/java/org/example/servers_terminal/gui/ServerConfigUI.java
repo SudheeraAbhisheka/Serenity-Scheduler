@@ -1,5 +1,6 @@
 package org.example.servers_terminal.gui;
 
+import com.example.SpeedAndCapObj;
 import javafx.application.Platform;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
@@ -13,7 +14,9 @@ import javafx.stage.Stage;
 import org.example.servers_terminal.service.ServerService;
 import org.springframework.context.ApplicationContext;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 public class ServerConfigUI {
     private final ServerService serverService;
@@ -84,24 +87,22 @@ public class ServerConfigUI {
                 appendLog("Invalid queue capacity");
                 return;
             }
-            boolean success = serverService.setServers(queueCapacity.get(), servers);
-            appendLog("Servers submitted: " + success + " with queue capacity: " + queueCapacity.get());
+//            boolean success = serverService.setServers(queueCapacity.get(), servers);
+            boolean success = serverService.setServersOneByOne(
+                    new SpeedAndCapObj(20.0, 10)
+            );
+            appendLog("Server submitted: " + success + " with queue capacity: " + 10);
         });
 
         defaultButton.setOnAction(e -> {
-            LinkedHashMap<String, Double> defaultServers = new LinkedHashMap<>() {{
-                put("1", 0.1);
-                put("2", 0.1);
-                put("3", 0.1);
-                put("4", 0.1);
-            }};
             try {
                 int newQueueCapacity = Integer.parseInt(queueCapacityField.getText());
                 queueCapacity.set(newQueueCapacity);
             } catch (NumberFormatException ex) {
                 appendLog("Invalid queue capacity, using default: " + defaultQueueCapacity);
             }
-            boolean success = serverService.setServers(queueCapacity.get(), defaultServers);
+//            boolean success = serverService.setServers(queueCapacity.get(), defaultServers);
+            boolean success = serverService.setServersDefault(14, new SpeedAndCapObj(10.0, 10));
             appendLog("Default servers submitted: " + success + " with queue capacity: " + queueCapacity.get());
         });
 
