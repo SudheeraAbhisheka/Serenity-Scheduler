@@ -2,6 +2,9 @@ package org.example.servers_terminal.gui;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.scene.Scene;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.stage.Stage;
 import org.example.servers_terminal.config.AppConfig;
 import org.example.servers_terminal.service.ServerService;
@@ -18,17 +21,30 @@ public class CombinedApplication extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        Stage generatingMessageStage = new Stage();
-        GeneratingMessagesUI generatingMessagesUI = new GeneratingMessagesUI(context);
-        generatingMessagesUI.show(generatingMessageStage);
+        TabPane tabPane = new TabPane();
 
-        Stage algorithmStage = new Stage();
-        AlgorithmSelectorUI algorithmUI = new AlgorithmSelectorUI(context);
-        algorithmUI.show(algorithmStage);
-
-        Stage serverStage = new Stage();
+        Tab serverConfigTab = new Tab("Server Configuration");
         ServerConfigUI serverUI = new ServerConfigUI(context);
-        serverUI.show(serverStage);
+        serverConfigTab.setContent(serverUI.getRoot());
+        serverConfigTab.setClosable(false);
+        tabPane.getTabs().add(serverConfigTab);
+
+        Tab algorithmSelectorTab = new Tab("Algorithm Selector");
+        AlgorithmSelectorUI algorithmUI = new AlgorithmSelectorUI(context);
+        algorithmSelectorTab.setContent(algorithmUI.getRoot());
+        algorithmSelectorTab.setClosable(false);
+        tabPane.getTabs().add(algorithmSelectorTab);
+
+        Tab generatingMessagesTab = new Tab("Generating Messages");
+        GeneratingMessagesUI generatingMessagesUI = new GeneratingMessagesUI(context);
+        generatingMessagesTab.setContent(generatingMessagesUI.getRoot());
+        generatingMessagesTab.setClosable(false);
+        tabPane.getTabs().add(generatingMessagesTab);
+
+        Scene scene = new Scene(tabPane, 800, 600);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle("Unified UI");
+        primaryStage.show();
     }
 
     public static void main(String[] args) {

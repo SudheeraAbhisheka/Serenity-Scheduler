@@ -1,19 +1,12 @@
 package org.example.servers.service;
 
-import com.example.AlgorithmRequestObj;
 import com.example.KeyValueObject;
 import com.example.ServerObject;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.Setter;
-import org.example.servers.controller.ServerController;
 import org.example.servers.controller.ServerControllerEmitter;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,14 +28,7 @@ public class ServerSimulator {
         runningServers = new LinkedHashMap<>();
     }
 
-    public void startServerSim() {
-//        if (executorService != null && !executorService.isShutdown()) {
-//            executorService.shutdownNow();
-//            System.out.println("Shutting down servers");
-//        }
-
-//        executorService = Executors.newCachedThreadPool();
-
+    public void updateServerSim() {
         for (ServerObject server : servers.values()) {
             if(!runningServers.containsKey(server.getServerId())){
                 executorService.submit(() -> processServerQueue(server));
@@ -69,21 +55,21 @@ public class ServerSimulator {
         try {
             while (!Thread.currentThread().isInterrupted()) {
                 KeyValueObject keyValueObject = queueServer.take();
-                Thread.sleep((long) ((keyValueObject.getWeight() / serverSpeed) * 1000));
 
+                keyValueObject.setServerKey(serverId);
+                keyValueObject.setStartOfProcessAt(System.currentTimeMillis());
+                Thread.sleep((long) ((keyValueObject.getWeight() / serverSpeed) * 1000));
+                keyValueObject.setEndOfProcessAt(System.currentTimeMillis());
                 keyValueObject.setExecuted(true);
 
-                String message = String.format("Server %s (queue size: %s) %s",
-                        serverId, queueServer.size(), keyValueObject);
-                serverControllerEmitter.sendUpdate(message);
+                serverControllerEmitter.sendUpdate(keyValueObject);
 
-                System.out.println(message);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
             String interruptMessage = String.format("Server %s processing interrupted.", serverId);
-            serverControllerEmitter.sendUpdate(interruptMessage);
+//            serverControllerEmitter.sendUpdate(interruptMessage);
             System.out.println(interruptMessage);
         }
     }

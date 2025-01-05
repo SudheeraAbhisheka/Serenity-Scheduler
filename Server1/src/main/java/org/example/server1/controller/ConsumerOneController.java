@@ -35,6 +35,7 @@ public class ConsumerOneController {
 
     @PostMapping("/set-complete-and-fetch")
     public void setCompleteAndFetch() {
+        schedulingAlgorithms.setSchedulingAlgorithm("complete-and-then-fetch");
         schedulingAlgorithms.executeCATF();
 
         if(messageBroker.equals("kafka")){
@@ -73,7 +74,7 @@ public class ConsumerOneController {
     }
 
     @PostMapping("/notify-new-servers")
-    public void addServers(@RequestBody String x) {
+    public void addServers() {
         schedulingAlgorithms.notifyNewServersCATFModel();
         System.out.println("Notified new servers");
     }

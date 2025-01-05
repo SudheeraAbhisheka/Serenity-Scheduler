@@ -4,7 +4,6 @@ import com.example.KeyValueObject;
 import com.example.ServerObject;
 import com.example.SpeedAndCapObj;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.servers.service.ServerSimulator;
 import org.springframework.http.*;
@@ -30,16 +29,21 @@ public class ServerController {
 
     @PostMapping("/set-servers-default")
     public ResponseEntity<String> setServersDefault(@RequestParam int noOfQueues, @RequestBody SpeedAndCapObj speedAndCapObj) {
-        ConcurrentHashMap<String, ServerObject> servers = new ConcurrentHashMap<>();
-
-        for (int i = 0; i < noOfQueues; i++) {
-            servers.put(
-                    Integer.toString(i+1),
-                    new ServerObject(Integer.toString(i+1), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed()));
+        if (serverSimulator.getServers() == null) {
+            serverSimulator.setServers(new ConcurrentHashMap<>());
         }
 
-        serverSimulator.setServers(servers);
-        serverSimulator.startServerSim();
+        int initialSize = serverSimulator.getServers().size();
+        for (int i = 0; i < noOfQueues; i++) {
+            int key = initialSize + i + 1;
+            serverSimulator.getServers().put(
+                    Integer.toString(key),
+                    new ServerObject(Integer.toString(key), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed())
+            );
+        }
+
+        serverSimulator.updateServerSim();
+        notifyNewServers();
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
@@ -56,21 +60,8 @@ public class ServerController {
                 Integer.toString(i+1),
                 new ServerObject(Integer.toString(i+1), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed()));
 
-        serverSimulator.startServerSim();
-
-        return new ResponseEntity<>(HttpStatus.OK);
-    }
-
-    @PostMapping("/set-new-servers")
-    public ResponseEntity<String> setNewServers(@RequestBody LinkedHashMap<String, Double> newServersL) {
-        ConcurrentHashMap<String, ServerObject> newServersC = new ConcurrentHashMap<>();
-
-        for(Map.Entry<String, Double> entry : newServersL.entrySet()) {
-            newServersC.put(entry.getKey(), new ServerObject(entry.getKey(), new LinkedBlockingQueue<>(), entry.getValue()));
-        }
-
-        serverSimulator.setNewServers(newServersC);
-        notifyNewServers(newServersL);
+        serverSimulator.updateServerSim();
+        notifyNewServers();
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
@@ -162,23 +153,22 @@ public class ServerController {
     }
 
 
-    public void notifyNewServers(LinkedHashMap<String, Double> newServers){
+    public void notifyNewServers() {
         String url = "http://server1:8083/consumer-one/notify-new-servers";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(newServers, headers);
+        HttpEntity<Void> request = new HttpEntity<>(headers);
 
         try {
             ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
             if (response.getStatusCode().is2xxSuccessful()) {
-                System.out.println("New servers set successfully.");
-//                setSuccess = true;
+                System.out.println("Notification sent successfully.");
             } else {
-                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
+                System.out.println("Failed to notify. Status: " + response.getStatusCode());
             }
         } catch (Exception e) {
-            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
+            System.out.println("Exception occurred while notifying: " + e.getMessage());
             e.printStackTrace();
         }
     }

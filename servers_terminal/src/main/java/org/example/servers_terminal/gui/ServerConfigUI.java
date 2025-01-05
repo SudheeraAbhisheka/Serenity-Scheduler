@@ -10,6 +10,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
 import org.example.servers_terminal.service.ServerService;
 import org.springframework.context.ApplicationContext;
@@ -21,32 +22,32 @@ import java.util.List;
 public class ServerConfigUI {
     private final ServerService serverService;
     private TextArea logArea;
+    private final GridPane root;
+
 
     public ServerConfigUI(ApplicationContext context) {
         this.serverService = context.getBean(ServerService.class);
+        root = new GridPane();
+        show();
     }
 
-    public void show(Stage primaryStage) {
-        primaryStage.setTitle("Server Configuration");
+    public void show() {
+        root.setPadding(new Insets(10));
+        root.setHgap(10);
+        root.setVgap(10);
 
-        LinkedHashMap<String, Double> servers = new LinkedHashMap<>();
-        int defaultQueueCapacity = 1;
-        final IntegerProperty queueCapacity = new SimpleIntegerProperty(defaultQueueCapacity);
+        TextField noOfServersField = new TextField();
+        noOfServersField.setPromptText("Number of Servers");
+        TextField serverSpeedsField = new TextField();
+        serverSpeedsField.setPromptText("Server Speeds");
+        TextField serverQueueCapsField = new TextField();
+        serverQueueCapsField.setPromptText("Server Queue Capacities");
 
-        GridPane gridPane = new GridPane();
-        gridPane.setPadding(new Insets(10));
-        gridPane.setHgap(10);
-        gridPane.setVgap(10);
+        TextField serverSpeedField = new TextField();
+        serverSpeedField.setPromptText("Server Speed");
+        TextField serverQueueCapacityField = new TextField();
+        serverQueueCapacityField.setPromptText("Server Queue Capacity");
 
-        TextField keyField = new TextField();
-        keyField.setPromptText("Server Key");
-        TextField valueField = new TextField();
-        valueField.setPromptText("Server Value");
-        TextField queueCapacityField = new TextField();
-        queueCapacityField.setPromptText("Queue Capacity");
-        queueCapacityField.setText(String.valueOf(defaultQueueCapacity));
-
-        Button addButton = new Button("Add Server");
         Button submitButton = new Button("Submit");
         Button defaultButton = new Button("Use Default");
         Button exitButton = new Button("Exit");
@@ -55,65 +56,65 @@ public class ServerConfigUI {
         logArea.setEditable(false);
         logArea.setPrefRowCount(5);
 
-        gridPane.add(keyField, 0, 0);
-        gridPane.add(valueField, 1, 0);
-        gridPane.add(queueCapacityField, 2, 0);
-        gridPane.add(addButton, 0, 1);
-        gridPane.add(submitButton, 1, 1);
-        gridPane.add(defaultButton, 2, 1);
-        gridPane.add(exitButton, 3, 1);
-        gridPane.add(logArea, 0, 2, 4, 1); // spanning all columns
+        root.add(noOfServersField, 0, 0);
+        root.add(serverSpeedsField, 1, 0);
+        root.add(serverQueueCapsField, 2, 0);
+        root.add(defaultButton, 3, 0);
+        root.add(serverSpeedField, 0, 1);
+        root.add(serverQueueCapacityField, 1, 1);
+        root.add(submitButton, 2, 1);
+        root.add(exitButton, 0, 2);
+        root.add(logArea, 0, 3, 4, 1);
 
-        addButton.setOnAction(e -> {
-            String key = keyField.getText();
-            Double value;
-            try {
-                value = Double.parseDouble(valueField.getText());
-            } catch (NumberFormatException ex) {
-                appendLog("Invalid value for server");
-                return;
-            }
-            servers.put(key, value);
-            keyField.clear();
-            valueField.clear();
-            appendLog("Server Added: " + key + " - " + value);
-        });
 
         submitButton.setOnAction(e -> {
+            double serverSpeed = 0.0;
+            int serverQueueCapacity = 0;
+
             try {
-                int newQueueCapacity = Integer.parseInt(queueCapacityField.getText());
-                queueCapacity.set(newQueueCapacity);
+                serverSpeed = Double.parseDouble(serverSpeedField.getText());
             } catch (NumberFormatException ex) {
-                appendLog("Invalid queue capacity");
+                appendLog("Invalid server speed");
                 return;
             }
-//            boolean success = serverService.setServers(queueCapacity.get(), servers);
+
+            try {
+                serverQueueCapacity = Integer.parseInt(serverQueueCapacityField.getText());
+            } catch (NumberFormatException ex) {
+                appendLog("Invalid server queue capacity");
+                return;
+            }
+
             boolean success = serverService.setServersOneByOne(
-                    new SpeedAndCapObj(20.0, 10)
+                    new SpeedAndCapObj(serverSpeed, serverQueueCapacity)
             );
-            appendLog("Server submitted: " + success + " with queue capacity: " + 10);
+            appendLog("Server submitted: " + success + " with speed: " + serverSpeed +
+                    " and queue capacity: " + serverQueueCapacity);
         });
 
         defaultButton.setOnAction(e -> {
             try {
-                int newQueueCapacity = Integer.parseInt(queueCapacityField.getText());
-                queueCapacity.set(newQueueCapacity);
+                int noOfServers = Integer.parseInt(noOfServersField.getText());
+                double serversSpeed = Double.parseDouble(serverSpeedsField.getText());
+                int serversQueueCap = Integer.parseInt(serverQueueCapsField.getText());
+
+                boolean success = serverService.setServersDefault(noOfServers, new SpeedAndCapObj(serversSpeed, serversQueueCap));
+                appendLog(noOfServers + " servers submitted: " + success);
+
             } catch (NumberFormatException ex) {
-                appendLog("Invalid queue capacity, using default: " + defaultQueueCapacity);
+                appendLog("Invalid input in default fields");
             }
-//            boolean success = serverService.setServers(queueCapacity.get(), defaultServers);
-            boolean success = serverService.setServersDefault(14, new SpeedAndCapObj(10.0, 10));
-            appendLog("Default servers submitted: " + success + " with queue capacity: " + queueCapacity.get());
         });
 
         exitButton.setOnAction(e -> Platform.exit());
 
-        Scene scene = new Scene(gridPane, 600, 300);
-        primaryStage.setScene(scene);
-        primaryStage.show();
     }
 
     private void appendLog(String message) {
         Platform.runLater(() -> logArea.appendText(message + "\n"));
+    }
+
+    public Pane getRoot() {
+        return root;
     }
 }

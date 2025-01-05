@@ -9,10 +9,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.Random;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -40,56 +37,58 @@ public class MessageService {
         }
     }
 
-    public void runTimedHelloWorld(TextArea outputArea){
+    public void runTimedHelloWorld(TextArea outputArea, int noOfThreads, int noOfTasks) {
         new Thread(() -> {
-            timedHelloWorld(outputArea);
+            timedHelloWorld(outputArea, noOfThreads, noOfTasks);
         }).start();
     }
 
-    private void timedHelloWorld(TextArea outputArea) {
+    private void timedHelloWorld(TextArea outputArea, int noOfThreads, int noOfTasks) {
         if (scheduler != null && !scheduler.isShutdown()) {
             scheduler.shutdownNow();
         }
 
-        ArrayList<Integer> scheduleRate = new ArrayList<>();
-        scheduleRate.add(5);
-//        scheduleRate.add(10);
-//        scheduleRate.add(15);
+        ArrayList<Integer> noOfTasksList = new ArrayList<>();
 
-        scheduler = Executors.newScheduledThreadPool(scheduleRate.size() + 1);
-        BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
+        int tasksPerThread = noOfTasks / noOfThreads;
+        int remainder = noOfTasks % noOfThreads;
+
+        for (int i = 0; i < noOfThreads; i++) {
+            if (i == noOfThreads - 1) {
+                noOfTasksList.add(tasksPerThread + remainder);
+            } else {
+                noOfTasksList.add(tasksPerThread);
+            }
+        }
+
+        scheduler = Executors.newScheduledThreadPool(noOfThreads + 1);
+        BlockingQueue<String>   messageQueue = new LinkedBlockingQueue<>();
         Random random = new Random(12345);
         sendMessageCount.set(0);
 
         /* ******************************************************** */
         long startTime = System.currentTimeMillis();
 
-        for (int milliSeconds : scheduleRate) {
+        for (int tasksPerThread_correct : noOfTasksList) {
             scheduler.submit(() -> {
 
                 System.out.println("started");
-                int countLimit = 7;
-                while (countLimit > 0) {
+
+                for (int i = 0; i < tasksPerThread_correct; i++) {
+
                     KeyValueObject keyValueObject = new KeyValueObject(
                             String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
                             1 + random.nextInt(10),
                             1 + random.nextInt(10),
                             false,
-                            1 + random.nextInt(3)
+                            1 + random.nextInt(3),
+                            System.currentTimeMillis()
                     );
                     sendMessage_topic_1to10(keyValueObject);
-//                    messageQueue.add("From thread " + Thread.currentThread().getName() + "\n" + keyValueObject + "\n");
+                    messageQueue.add("From thread " + Thread.currentThread().getName() + "\n" + keyValueObject + "\n");
 //                    messageQueue.add(Integer.toString(sendMessageCount.get()));
                     sendMessageCount.incrementAndGet();
 
-//                    try {
-//                        Thread.sleep(milliSeconds);
-//                    } catch (InterruptedException e) {
-//                        Thread.currentThread().interrupt();
-//                        break;
-//                    }
-
-                    countLimit--;
                 }
 
                 System.out.println((System.currentTimeMillis() - startTime)/1000.0);
@@ -97,16 +96,26 @@ public class MessageService {
             });
         }
 
-        scheduler.submit(() -> {
+        scheduler.scheduleAtFixedRate(() -> {
             try {
-                while (true) {
-                    String finalMessage = messageQueue.take();
-                    Platform.runLater(() -> outputArea.appendText(finalMessage));
+                ArrayList<String> batch = new ArrayList<>();
+                messageQueue.drainTo(batch);
+
+                if (!batch.isEmpty()) {
+                    StringBuilder sb = new StringBuilder();
+                    for (String msg : batch) {
+                        sb.append(msg);
+                    }
+
+                    Platform.runLater(() -> {
+                        outputArea.appendText(sb.toString());
+                    });
                 }
-            } catch (InterruptedException e) {
+            } catch (Exception e) {
+                e.printStackTrace();
                 Thread.currentThread().interrupt();
             }
-        });
+        }, 0, 100, TimeUnit.MILLISECONDS);
     }
 
 

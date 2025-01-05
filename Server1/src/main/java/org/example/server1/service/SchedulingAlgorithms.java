@@ -31,8 +31,10 @@ public class SchedulingAlgorithms {
     private final LinkedHashMap<String, Boolean> runningServers;
 
     private ExecutorService executorService;
-    ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private LinkedHashMap<String, Double> servers;
+    @Setter
+    private String schedulingAlgorithm = "";
 
     @Autowired
     public SchedulingAlgorithms(RestTemplate restTemplate) {
@@ -268,6 +270,9 @@ public class SchedulingAlgorithms {
 
     public void notifyNewServersCATFModel(){
         servers = fetchServers();
+        if(schedulingAlgorithm.equals("complete-and-then-fetch")){
+            executeCATF();
+        }
     }
 
 /*
