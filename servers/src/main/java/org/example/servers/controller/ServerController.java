@@ -12,7 +12,9 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @RestController
 @RequestMapping("/api")
@@ -152,7 +154,6 @@ public class ServerController {
         return remainingTime;
     }
 
-
     public void notifyNewServers() {
         String url = "http://server1:8083/consumer-one/notify-new-servers";
         HttpHeaders headers = new HttpHeaders();
@@ -171,5 +172,31 @@ public class ServerController {
             System.out.println("Exception occurred while notifying: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    @PostMapping("/generate-report")
+    public void generateReport(@RequestBody int count) {
+        serverSimulator.setAtomicCount(new AtomicInteger(count));
+    }
+
+    @PostMapping("/crash-server")
+    public boolean crashAServer(@RequestBody Integer serverId) {
+        Future<?> future = serverSimulator.getServerTaskMap().get(serverId.toString());
+        boolean successful = false;
+
+        if (future == null) {
+            System.out.println(future);
+        }
+        else{
+            successful = future.cancel(true);
+            if(successful) {
+                serverSimulator.getServerTaskMap().remove(serverId);
+            }
+            else{
+                System.out.println("Failed to crash server " + serverId);
+            }
+        }
+
+        return successful;
     }
 }

@@ -58,7 +58,6 @@ public class ConsumerOneController {
         else if(messageBroker.equals("rabbitmq")){
             rabbitMQ_consumer.setSchedulingAlgorithm("age-based-priority-scheduling");
         }
-
     }
 
     @PostMapping("/set-work-load-balancing")
@@ -77,5 +76,13 @@ public class ConsumerOneController {
     public void addServers() {
         schedulingAlgorithms.notifyNewServersCATFModel();
         System.out.println("Notified new servers");
+    }
+
+    @GetMapping("/get-server1-details")
+    public AlgorithmRequestObj server1Details() {
+        return new AlgorithmRequestObj(
+                schedulingAlgorithms.getSchedulingAlgorithm(),
+                messageBroker
+        );
     }
 }

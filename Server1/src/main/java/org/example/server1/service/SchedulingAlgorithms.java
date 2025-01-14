@@ -4,6 +4,7 @@ import com.example.AlgorithmRequestObj;
 import com.example.KeyValueObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
 import lombok.Setter;
 import org.example.server1.component.Kafka_consumer;
 import org.example.server1.component.RabbitMQ_consumer;
@@ -34,6 +35,7 @@ public class SchedulingAlgorithms {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private LinkedHashMap<String, Double> servers;
     @Setter
+    @Getter
     private String schedulingAlgorithm = "";
 
     @Autowired

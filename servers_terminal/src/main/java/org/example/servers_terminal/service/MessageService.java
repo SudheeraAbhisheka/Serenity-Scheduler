@@ -37,19 +37,41 @@ public class MessageService {
         }
     }
 
-    public void runTimedHelloWorld(TextArea outputArea, int noOfThreads, int noOfTasks) {
-        new Thread(() -> {
-            timedHelloWorld(outputArea, noOfThreads, noOfTasks);
-        }).start();
+    public void runTimedHelloWorld(TextArea outputArea,
+                                   int noOfThreads,
+                                   int noOfTasks,
+                                   int minWeight,
+                                   int maxWeight,
+                                   int minPriority,
+                                   int maxPriority) {
+
+        timedHelloWorld(outputArea,
+                noOfThreads,
+                noOfTasks,
+                minWeight,
+                maxWeight,
+                minPriority,
+                maxPriority);
     }
 
-    private void timedHelloWorld(TextArea outputArea, int noOfThreads, int noOfTasks) {
+
+    private void timedHelloWorld(TextArea outputArea,
+                                 int noOfThreads,
+                                 int noOfTasks,
+                                 int minWeight,
+                                 int maxWeight,
+                                 int minPriority,
+                                 int maxPriority) {
+
         if (scheduler != null && !scheduler.isShutdown()) {
             scheduler.shutdownNow();
         }
 
-        ArrayList<Integer> noOfTasksList = new ArrayList<>();
+        scheduler = Executors.newScheduledThreadPool(noOfThreads + 1);
+        Random random = new Random(12345);
+        sendMessageCount.set(0);
 
+        ArrayList<Integer> noOfTasksList = new ArrayList<>();
         int tasksPerThread = noOfTasks / noOfThreads;
         int remainder = noOfTasks % noOfThreads;
 
@@ -61,66 +83,34 @@ public class MessageService {
             }
         }
 
-        scheduler = Executors.newScheduledThreadPool(noOfThreads + 1);
-        BlockingQueue<String>   messageQueue = new LinkedBlockingQueue<>();
-        Random random = new Random(12345);
-        sendMessageCount.set(0);
-
-        /* ******************************************************** */
-        long startTime = System.currentTimeMillis();
-
-        for (int tasksPerThread_correct : noOfTasksList) {
+        for (int tasksPerThreadCorrect : noOfTasksList) {
             scheduler.submit(() -> {
+                Platform.runLater(() -> outputArea.appendText("Thread " + Thread.currentThread().getName() + " started.\n"));
 
-                System.out.println("started");
-
-                for (int i = 0; i < tasksPerThread_correct; i++) {
-
+                for (int i = 0; i < tasksPerThreadCorrect; i++) {
                     KeyValueObject keyValueObject = new KeyValueObject(
-                            String.valueOf(System.currentTimeMillis()) + Thread.currentThread().getId(),
+                            System.currentTimeMillis() + String.valueOf(Thread.currentThread().getId()),
                             1 + random.nextInt(10),
-                            1 + random.nextInt(10),
+                            minWeight + random.nextInt(maxWeight - minWeight + 1),
                             false,
-                            1 + random.nextInt(3),
+                            minPriority + random.nextInt(maxPriority - minPriority + 1),
                             System.currentTimeMillis()
                     );
-                    sendMessage_topic_1to10(keyValueObject);
-                    messageQueue.add("From thread " + Thread.currentThread().getName() + "\n" + keyValueObject + "\n");
-//                    messageQueue.add(Integer.toString(sendMessageCount.get()));
-                    sendMessageCount.incrementAndGet();
 
+                    if(!sendMessage_topic_1to10(keyValueObject)){
+                        Platform.runLater(() -> outputArea.appendText("Failed to send: " + keyValueObject.getKey() + " \n"));
+                    }
+                    int currentCount = sendMessageCount.incrementAndGet();
+
+                    if (currentCount == noOfTasks) {
+                        Platform.runLater(() -> outputArea.appendText(currentCount + " tasks created.\n"));
+                    }
                 }
-
-                System.out.println((System.currentTimeMillis() - startTime)/1000.0);
-                System.out.println(sendMessageCount);
             });
         }
-
-        scheduler.scheduleAtFixedRate(() -> {
-            try {
-                ArrayList<String> batch = new ArrayList<>();
-                messageQueue.drainTo(batch);
-
-                if (!batch.isEmpty()) {
-                    StringBuilder sb = new StringBuilder();
-                    for (String msg : batch) {
-                        sb.append(msg);
-                    }
-
-                    Platform.runLater(() -> {
-                        outputArea.appendText(sb.toString());
-                    });
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                Thread.currentThread().interrupt();
-            }
-        }, 0, 100, TimeUnit.MILLISECONDS);
     }
 
-
-
-    private void sendMessage_topic_1to10(KeyValueObject keyValueObject) {
+    private boolean sendMessage_topic_1to10(KeyValueObject keyValueObject) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -128,15 +118,25 @@ public class MessageService {
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
-
-            if (response.getStatusCode().is2xxSuccessful()) {
-
-            } else {
-                System.out.println("Failed to send message. Status: " + response.getStatusCode());
-            }
+            return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
-            System.out.println("Exception occurred while sending message: " + e.getMessage());
-            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean generateReport(int count) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Integer> request = new HttpEntity<>(count, headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.exchange("http://localhost:8084/api/generate-report",
+                    HttpMethod.POST, request, String.class);
+            return response.getStatusCode().is2xxSuccessful();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            return false;
         }
     }
 

@@ -48,8 +48,8 @@ public class ServerConfigUI {
         TextField serverQueueCapacityField = new TextField();
         serverQueueCapacityField.setPromptText("Server Queue Capacity");
 
-        Button submitButton = new Button("Submit");
-        Button defaultButton = new Button("Use Default");
+        Button submitOneButton = new Button("Submit one");
+        Button submitManyButton = new Button("Submit many");
         Button exitButton = new Button("Exit");
 
         logArea = new TextArea();
@@ -59,15 +59,15 @@ public class ServerConfigUI {
         root.add(noOfServersField, 0, 0);
         root.add(serverSpeedsField, 1, 0);
         root.add(serverQueueCapsField, 2, 0);
-        root.add(defaultButton, 3, 0);
+        root.add(submitManyButton, 3, 0);
         root.add(serverSpeedField, 0, 1);
         root.add(serverQueueCapacityField, 1, 1);
-        root.add(submitButton, 2, 1);
+        root.add(submitOneButton, 2, 1);
         root.add(exitButton, 0, 2);
         root.add(logArea, 0, 3, 4, 1);
 
 
-        submitButton.setOnAction(e -> {
+        submitOneButton.setOnAction(e -> {
             double serverSpeed = 0.0;
             int serverQueueCapacity = 0;
 
@@ -92,7 +92,7 @@ public class ServerConfigUI {
                     " and queue capacity: " + serverQueueCapacity);
         });
 
-        defaultButton.setOnAction(e -> {
+        submitManyButton.setOnAction(e -> {
             try {
                 int noOfServers = Integer.parseInt(noOfServersField.getText());
                 double serversSpeed = Double.parseDouble(serverSpeedsField.getText());
