@@ -1,15 +1,19 @@
 package org.example.server1.controller;
 
 import com.example.AlgorithmRequestObj;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.KeyValueObject;
 import org.example.server1.component.Kafka_consumer;
 import org.example.server1.component.RabbitMQ_consumer;
 import org.example.server1.service.SchedulingAlgorithms;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Future;
 
 @RestController
 @RequestMapping("/consumer-one")
@@ -84,5 +88,37 @@ public class ConsumerOneController {
                 schedulingAlgorithms.getSchedulingAlgorithm(),
                 messageBroker
         );
+    }
+
+    @PostMapping("/crashed-tasks")
+    public ResponseEntity<String> addCrashedTasks(@RequestParam Integer serverId, @RequestBody List<KeyValueObject> crashedTasks) {
+        ResponseEntity<String> responseEntity;
+        CopyOnWriteArrayList<KeyValueObject> crashedTasksThreadSafe = new CopyOnWriteArrayList<>();
+
+        try {
+            crashedTasksThreadSafe = new CopyOnWriteArrayList<>(crashedTasks);
+            responseEntity = ResponseEntity.ok("Tasks received successfully");
+
+        } catch (Exception e) {
+            responseEntity = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing tasks");
+        }
+
+        String serverIdString = serverId.toString();
+
+        System.out.println("stopping server "+serverIdString);
+        System.out.println(crashedTasksThreadSafe);
+        System.out.println("current working task: "+schedulingAlgorithms.getCurrentWorkingTask1().get(serverIdString));
+
+        KeyValueObject workingTask = schedulingAlgorithms.getCurrentWorkingTask1().remove(serverIdString);
+
+        if(workingTask != null) {
+            crashedTasksThreadSafe.add(workingTask);
+        }
+
+        schedulingAlgorithms.getServerSwitches().put(serverIdString, false);
+
+        schedulingAlgorithms.getCrashedTasks().addAll(crashedTasksThreadSafe);
+
+        return responseEntity;
     }
 }

@@ -1,6 +1,5 @@
 package org.example.server1.service;
 
-import com.example.AlgorithmRequestObj;
 import com.example.KeyValueObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,6 +18,7 @@ import java.util.concurrent.*;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class SchedulingAlgorithms {
@@ -29,20 +29,27 @@ public class SchedulingAlgorithms {
     private ConcurrentLinkedQueue<String> wlbQueue;
     private BlockingQueue<String> blockingQueuePriorityS;
 
-    private final LinkedHashMap<String, Boolean> runningServers;
-
     private ExecutorService executorService;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private LinkedHashMap<String, Double> servers;
     @Setter
     @Getter
     private String schedulingAlgorithm = "";
+    @Getter
+    private final CopyOnWriteArrayList<KeyValueObject> crashedTasks = new CopyOnWriteArrayList<>();
+    @Getter
+    private final ConcurrentMap<String, Future<?>> serverTaskMap = new ConcurrentHashMap<>();
+    @Getter
+    private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTask1 = new ConcurrentHashMap<>();
+    @Getter
+    private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTask2 = new ConcurrentHashMap<>();
+    @Getter
+    private final ConcurrentHashMap<String, Boolean> serverSwitches = new ConcurrentHashMap<>();
 
     @Autowired
     public SchedulingAlgorithms(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
         executorService = Executors.newCachedThreadPool();
-        runningServers = new LinkedHashMap<>();
     }
 
     public void restarting() {
@@ -130,9 +137,9 @@ public class SchedulingAlgorithms {
 
     public void executeCATF(){
         for (String serverId : servers.keySet()) {
-            if(!runningServers.containsKey(serverId)){
+            if(!serverSwitches.containsKey(serverId)){
+                serverSwitches.put(serverId, true);
                 executorService.submit(() -> {completeAndThenFetchModel(serverId);});
-                runningServers.put(serverId, null);
             }
         }
 
@@ -141,17 +148,27 @@ public class SchedulingAlgorithms {
     private void completeAndThenFetchModel(String serverId) {
         ObjectMapper objectMapper = new ObjectMapper();
 
-        while (!Thread.currentThread().isInterrupted()) {
+        while (serverSwitches.get(serverId)) {
             KeyValueObject keyValueObject;
             String message;
 
             try {
-                message = dynamicBlockingQueue.take();
-                keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
+                if(!crashedTasks.isEmpty()){
+                    keyValueObject = crashedTasks.remove(0);
+                    System.out.println("crashedTasks: " + keyValueObject);
+                }
+                else{
+                    message = dynamicBlockingQueue.take();
+                    keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
+                    currentWorkingTask1.put(serverId, keyValueObject);
+                    System.out.println("Running: " + serverId);
+                }
 
                 try {
                     String url = "http://servers:8084/api/server?serverId=" + serverId;
+//                    currentWorkingTask2.put(serverId, keyValueObject);
                     restTemplate.postForEntity(url, keyValueObject, String.class);
+                    currentWorkingTask1.remove(serverId);
                 } catch (Exception e) {
                     System.err.printf("Error sending to Server %s: %s\n", serverId, e.getMessage());
                 }

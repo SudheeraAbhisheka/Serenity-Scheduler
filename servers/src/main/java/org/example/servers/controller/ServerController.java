@@ -70,7 +70,15 @@ public class ServerController {
 
     @PostMapping("/server")
     public ResponseEntity<String> handleServer1(@RequestParam String serverId, @RequestBody KeyValueObject keyValueObject) throws InterruptedException {
-        serverSimulator.getServers().get(serverId).getQueueServer().put(keyValueObject);
+        ServerObject server = serverSimulator.getServers().get(serverId);
+
+        if (server == null) {
+            System.out.printf("Null server %s,:%s\n", serverId, keyValueObject.getServerKey());
+        }
+        else{
+            server.getQueueServer().put(keyValueObject);
+        }
+
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
@@ -177,6 +185,7 @@ public class ServerController {
     @PostMapping("/generate-report")
     public void generateReport(@RequestBody int count) {
         serverSimulator.setAtomicCount(new AtomicInteger(count));
+        serverSimulator.getHandledByServer().clear();
     }
 
     @PostMapping("/crash-server")
@@ -190,7 +199,7 @@ public class ServerController {
         else{
             successful = future.cancel(true);
             if(successful) {
-                serverSimulator.getServerTaskMap().remove(serverId);
+                serverSimulator.getServerTaskMap().remove(serverId.toString());
             }
             else{
                 System.out.println("Failed to crash server " + serverId);

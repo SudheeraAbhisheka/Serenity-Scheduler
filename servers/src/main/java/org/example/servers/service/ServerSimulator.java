@@ -5,13 +5,12 @@ import com.example.ServerObject;
 import lombok.Getter;
 import lombok.Setter;
 import org.example.servers.controller.ServerControllerEmitter;
+import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,12 +29,16 @@ public class ServerSimulator {
     private final StringBuffer sb = new StringBuffer();
     ServerControllerEmitter emitter;
     private final AtomicLong atomicTotalWait = new AtomicLong(0);
+    @Getter
     private final ConcurrentHashMap<String, Integer> handledByServer = new ConcurrentHashMap<>();
     @Getter
     private final ConcurrentMap<String, Future<?>> serverTaskMap = new ConcurrentHashMap<>();
+    private final RestTemplate restTemplate;
+    private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTasks = new ConcurrentHashMap<>();
 
-    public ServerSimulator(ServerControllerEmitter emitter) {
+    public ServerSimulator(ServerControllerEmitter emitter, RestTemplate restTemplate) {
         this.emitter = emitter;
+        this.restTemplate = restTemplate;
         executorService = Executors.newCachedThreadPool();
         runningServers = new LinkedHashMap<>();
         aliveServers = new ConcurrentHashMap<>();
@@ -72,7 +75,6 @@ public class ServerSimulator {
         BlockingQueue<KeyValueObject> queueServer = server.getQueueServer();
         long waitFromCreate;
 
-        // Shared flag to control thread termination
         AtomicBoolean isRunning = new AtomicBoolean(true);
 
         Thread heartbeatThread = new Thread(() -> {
@@ -81,7 +83,6 @@ public class ServerSimulator {
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
-                    // Respect the interrupt signal
                     Thread.currentThread().interrupt();
                     break;
                 }
@@ -93,16 +94,20 @@ public class ServerSimulator {
         try {
             while (!Thread.currentThread().isInterrupted() && isRunning.get()) {
                 KeyValueObject keyValueObject = queueServer.take();
+                currentWorkingTasks.put(serverId, keyValueObject);
 
                 keyValueObject.setServerKey(serverId);
                 keyValueObject.setStartOfProcessAt(System.currentTimeMillis());
                 Thread.sleep((long) ((keyValueObject.getWeight() / serverSpeed) * 1000));
                 keyValueObject.setEndOfProcessAt(System.currentTimeMillis());
                 keyValueObject.setExecuted(true);
+                currentWorkingTasks.remove(serverId);
+                System.out.println(keyValueObject);
 
                 if (atomicCount != null) {
                     if (atomicCount.get() > 1) {
                         atomicCount.decrementAndGet();
+                        System.out.println("atomic count: "+atomicCount);
                         synchronized (sb) {
                             sb.append(keyValueObject).append("\n");
                         }
@@ -112,6 +117,7 @@ public class ServerSimulator {
 
                         handledByServer.merge(serverId, 1, Integer::sum);
                     } else {
+                        System.out.println("atomic count: "+atomicCount);
                         atomicCount = null;
 
                         waitFromCreate = keyValueObject.getStartOfProcessAt() - keyValueObject.getGeneratedAt();
@@ -133,9 +139,9 @@ public class ServerSimulator {
             Thread.currentThread().interrupt();
             System.out.printf("Server %s processing interrupted.\n", serverId);
         } finally {
-            isRunning.set(false); // Stop the heartbeat thread
+            isRunning.set(false);
             try {
-                heartbeatThread.join(); // Ensure the thread terminates
+                heartbeatThread.join();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -149,31 +155,46 @@ public class ServerSimulator {
         atomicTotalWait.set(0);
         handledByServer.clear();
         emitter.sendUpdate(s);
-        System.out.println(s);
+//        System.out.println(s);
     }
 
     private void checkingHeartBeat(){
-        System.out.println("alive servers - before: " + aliveServers);
-        for (Map.Entry<String, Integer> entry : aliveServers.entrySet()) {
-            String key = entry.getKey();
-            Integer value = entry.getValue();
+        Iterator<Map.Entry<String, Integer>> iterator = aliveServers.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, Integer> entry = iterator.next();
+            String serverId = entry.getKey();
+            Integer count = entry.getValue();
 
-            if(value < 1){
-                System.out.println("Server " + key + " has low heartbeat");
-//                        crashedServer(servers.get(key));
-//                        servers.remove(key);
-//                        runningServers.remove(key);
+            if (count < 1) {
+                runningServers.remove(serverId);
+//                crashedServer(servers.remove(serverId));
+                ServerObject server = servers.remove(serverId);
+
+                List<KeyValueObject> crashedTasksList = new ArrayList<>(server.getQueueServer());
+                crashedTasksList.add(
+                        currentWorkingTasks.get(server.getServerId())
+                );
+                sendCrashedServerTasks(crashedTasksList, serverId);
+
+//                Queue<KeyValueObject> crashedTasks = server.getQueueServer();
+//                crashedTasks.add(
+//                        currentWorkingTasks.get(server.getServerId())
+//                );
+//                sendCrashedServerTasks(crashedTasks);
+
+                iterator.remove();
+            } else {
+                entry.setValue(0);
             }
-
-            entry.setValue(0);
         }
-        System.out.println("alive servers - after: " + aliveServers);
+
     }
 
     private void crashedServer(ServerObject server){
         BlockingQueue<KeyValueObject> queueServer = server.getQueueServer();
+        KeyValueObject unfinishedTask = currentWorkingTasks.get(server.getServerId());
 
-        System.out.println(queueServer);
+        System.out.println("queue server: "+queueServer);
 
 //        while(!queueServer.isEmpty()){
 //            for(ServerObject serverObject : servers.values()){
@@ -187,5 +208,30 @@ public class ServerSimulator {
 //                }
 //            }
 //        }
+    }
+
+    public void sendCrashedServerTasks2(Queue<KeyValueObject> queueServer) {
+        try {
+            String url = "http://servers:8084/api/server2";
+            restTemplate.postForEntity(url, queueServer, Queue.class);
+        } catch (Exception e) {
+            System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
+        }
+    }
+
+    public void sendCrashedServerTasks(List<KeyValueObject> crashedTasksList, String serverId) {
+        try {
+            String url = "http://server1:8083/consumer-one/crashed-tasks?serverId=" + serverId;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<List<KeyValueObject>> request = new HttpEntity<>(crashedTasksList, headers);
+
+            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+
+            System.out.printf("Successfully sent tasks. Response: %s\n", response.getBody());
+        } catch (Exception e) {
+            System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
+        }
     }
 }
