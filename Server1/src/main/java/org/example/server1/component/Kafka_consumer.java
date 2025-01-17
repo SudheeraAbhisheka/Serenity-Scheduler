@@ -2,6 +2,7 @@ package org.example.server1.component;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.Synchronized;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -19,9 +20,18 @@ public class Kafka_consumer {
     private String schedulingAlgorithm;
     @Getter
     private static final ConcurrentLinkedQueue<String> wlbQueue = new ConcurrentLinkedQueue<>();
+    @Setter
+    private static boolean crashedTasks = false;
+    @Getter
+    private static final Object lock = new Object();
 
     @KafkaListener(topics = "topic_1-10", groupId = "my-group")
     public void listen_1to10(String message) throws InterruptedException {
+        if(crashedTasks){
+            synchronized(lock){
+                lock.wait();
+            }
+        }
 
         switch(schedulingAlgorithm){
             case "complete-and-then-fetch": {

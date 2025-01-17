@@ -2,6 +2,8 @@ package org.example.server1.controller;
 
 import com.example.AlgorithmRequestObj;
 import com.example.KeyValueObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.server1.component.Kafka_consumer;
 import org.example.server1.component.RabbitMQ_consumer;
 import org.example.server1.service.SchedulingAlgorithms;
@@ -14,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/consumer-one")
@@ -91,34 +94,73 @@ public class ConsumerOneController {
     }
 
     @PostMapping("/crashed-tasks")
-    public ResponseEntity<String> addCrashedTasks(@RequestParam Integer serverId, @RequestBody List<KeyValueObject> crashedTasks) {
-        ResponseEntity<String> responseEntity;
-        CopyOnWriteArrayList<KeyValueObject> crashedTasksThreadSafe = new CopyOnWriteArrayList<>();
-
-        try {
-            crashedTasksThreadSafe = new CopyOnWriteArrayList<>(crashedTasks);
-            responseEntity = ResponseEntity.ok("Tasks received successfully");
-
-        } catch (Exception e) {
-            responseEntity = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing tasks");
-        }
+    public void addCrashedTasks(@RequestParam Integer serverId, @RequestBody List<KeyValueObject> crashedTasks) throws InterruptedException, JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
 
         String serverIdString = serverId.toString();
 
-        System.out.println("stopping server "+serverIdString);
-        System.out.println(crashedTasksThreadSafe);
-        System.out.println("current working task: "+schedulingAlgorithms.getCurrentWorkingTask1().get(serverIdString));
-
-        KeyValueObject workingTask = schedulingAlgorithms.getCurrentWorkingTask1().remove(serverIdString);
-
-        if(workingTask != null) {
-            crashedTasksThreadSafe.add(workingTask);
+        if(schedulingAlgorithms.getCurrentWorkingTask1().containsKey(serverIdString)){
+            crashedTasks.add(
+                    schedulingAlgorithms.getCurrentWorkingTask1().remove(serverIdString)
+            );
         }
 
         schedulingAlgorithms.getServerSwitches().put(serverIdString, false);
 
-        schedulingAlgorithms.getCrashedTasks().addAll(crashedTasksThreadSafe);
+        Kafka_consumer.setCrashedTasks(true);
 
-        return responseEntity;
+        System.out.println("Crashed tasks: "+crashedTasks.stream().map(KeyValueObject::getKey).toList());
+
+        for(KeyValueObject task : crashedTasks) {
+//            if(schedulingAlgorithms.isRunning()){
+//                schedulingAlgorithms.getCrashedTasks().add(task);
+//            }
+//            else{
+//                schedulingAlgorithms.getDynamicBlockingQueue().put(task.toString());
+//            }
+//
+            schedulingAlgorithms.getDynamicBlockingQueue().put(
+                    objectMapper.writeValueAsString(task)
+            );
+        }
+
+        Kafka_consumer.setCrashedTasks(false);
+
+        Object lock = Kafka_consumer.getLock();
+
+        synchronized (lock) {
+            lock.notify();
+        }
+
+//        for(KeyValueObject task : crashedTasksThreadSafe) {
+//            if(schedulingAlgorithms.isRunning()){
+//                schedulingAlgorithms.getCrashedTasks().add(task);
+//            }
+//            else{
+//                schedulingAlgorithms.getDynamicBlockingQueue().put(task.toString());
+//            }
+//        }
+//
+//        schedulingAlgorithms.getCrashedTasks().addAll(crashedTasksThreadSafe);
+
+//        new Thread(() ->{
+//            for(KeyValueObject task : crashedTasksThreadSafe){
+//                if(task == null){
+//                    System.out.println("Null value");
+//                }
+//                else{
+//                    System.out.println("Sending from the new thread");
+//                    try {
+//                        schedulingAlgorithms.getDynamicBlockingQueue().put(task.toString());
+//                    } catch (InterruptedException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                    System.out.println("Sent from the new thread");
+//                }
+//            }
+//            crashedTasksThreadSafe.clear();
+//        }).start();
+
+//        return responseEntity;
     }
 }

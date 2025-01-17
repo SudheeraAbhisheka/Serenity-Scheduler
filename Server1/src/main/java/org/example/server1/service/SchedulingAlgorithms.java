@@ -18,13 +18,12 @@ import java.util.concurrent.*;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class SchedulingAlgorithms {
     private final RestTemplate restTemplate;
     private boolean waitingThreads = false;
-
+    @Getter
     private BlockingQueue<String> dynamicBlockingQueue;
     private ConcurrentLinkedQueue<String> wlbQueue;
     private BlockingQueue<String> blockingQueuePriorityS;
@@ -36,7 +35,7 @@ public class SchedulingAlgorithms {
     @Getter
     private String schedulingAlgorithm = "";
     @Getter
-    private final CopyOnWriteArrayList<KeyValueObject> crashedTasks = new CopyOnWriteArrayList<>();
+    private final BlockingQueue<KeyValueObject> crashedTasks = new LinkedBlockingQueue<>();
     @Getter
     private final ConcurrentMap<String, Future<?>> serverTaskMap = new ConcurrentHashMap<>();
     @Getter
@@ -141,9 +140,109 @@ public class SchedulingAlgorithms {
                 serverSwitches.put(serverId, true);
                 executorService.submit(() -> {completeAndThenFetchModel(serverId);});
             }
+
         }
 
     }
+   /* KeyValueObject keyValueObject1 = null;
+    KeyValueObject keyValueObject2 = null;
+    String message;
+    boolean runningCrashedTasks = false;
+
+    private void completeAndThenFetchModel(String serverId) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        final Object lock1 = new Object();
+        final Object lock2 = new Object();
+
+        executorService.submit(() -> {
+            while (serverSwitches.get(serverId)){
+                try {
+                    keyValueObject1 = crashedTasks.take();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("crashedTasks: " + keyValueObject1);
+
+                synchronized (lock1) {
+                    lock1.notify();
+                    runningCrashedTasks = true;
+                }
+
+//                synchronized (lock2) {
+//                    lock2.notify();
+//                    runningCrashedTasks = true;
+//                }
+            }
+        });
+
+
+        executorService.submit(() -> {
+            while (serverSwitches.get(serverId)) {
+
+                try {
+                    if(crashedTasks.isEmpty()){
+                        message = dynamicBlockingQueue.take();
+
+                        keyValueObject2 = objectMapper.readValue(message, KeyValueObject.class);
+                        currentWorkingTask1.put(serverId, keyValueObject1);
+                        System.out.println("Running: " + serverId);
+                    }
+                    else{
+                        keyValueObject2 = crashedTasks.poll();
+                        System.out.println("crashedTasks: " + keyValueObject2);
+                    }
+
+                    if(runningCrashedTasks){
+                        synchronized (lock1){
+                            try {
+                                lock1.wait();
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    }
+                    else{
+                        synchronized (lock1) {
+                            lock1.notify();
+                        }
+                    }
+
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+
+        executorService.submit(() -> {
+            while (serverSwitches.get(serverId)){
+
+                synchronized (lock1){
+                    try {
+                        lock1.wait();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+
+                try {
+                    String url = "http://servers:8084/api/server?serverId=" + serverId;
+//                    currentWorkingTask2.put(serverId, keyValueObject);
+                    if(runningCrashedTasks){
+                        restTemplate.postForEntity(url, keyValueObject1, String.class);
+                    }
+                    else{
+                        restTemplate.postForEntity(url, keyValueObject2, String.class);
+                    }
+
+                    currentWorkingTask1.remove(serverId);
+                } catch (Exception e) {
+                    System.err.printf("Error sending to Server %s: %s\n", serverId, e.getMessage());
+                }
+            }
+        });
+    }*/
 
     private void completeAndThenFetchModel(String serverId) {
         ObjectMapper objectMapper = new ObjectMapper();
@@ -153,20 +252,12 @@ public class SchedulingAlgorithms {
             String message;
 
             try {
-                if(!crashedTasks.isEmpty()){
-                    keyValueObject = crashedTasks.remove(0);
-                    System.out.println("crashedTasks: " + keyValueObject);
-                }
-                else{
-                    message = dynamicBlockingQueue.take();
-                    keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
-                    currentWorkingTask1.put(serverId, keyValueObject);
-                    System.out.println("Running: " + serverId);
-                }
+                message = dynamicBlockingQueue.take();
+                keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
+                currentWorkingTask1.put(serverId, keyValueObject);
 
                 try {
                     String url = "http://servers:8084/api/server?serverId=" + serverId;
-//                    currentWorkingTask2.put(serverId, keyValueObject);
                     restTemplate.postForEntity(url, keyValueObject, String.class);
                     currentWorkingTask1.remove(serverId);
                 } catch (Exception e) {
@@ -180,7 +271,6 @@ public class SchedulingAlgorithms {
             }
         }
     }
-
     public void priorityBasedScheduling(LinkedHashMap<Integer, Double> thresholdTime) {
         final Object lock = new Object();
 

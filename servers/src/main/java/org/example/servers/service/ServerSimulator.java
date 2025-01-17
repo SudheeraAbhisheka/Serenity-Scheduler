@@ -15,6 +15,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 @Service
 public class ServerSimulator {
@@ -102,7 +103,7 @@ public class ServerSimulator {
                 keyValueObject.setEndOfProcessAt(System.currentTimeMillis());
                 keyValueObject.setExecuted(true);
                 currentWorkingTasks.remove(serverId);
-                System.out.println(keyValueObject);
+                System.out.println("completed: "+keyValueObject.getKey());
 
                 if (atomicCount != null) {
                     if (atomicCount.get() > 1) {
@@ -171,9 +172,13 @@ public class ServerSimulator {
                 ServerObject server = servers.remove(serverId);
 
                 List<KeyValueObject> crashedTasksList = new ArrayList<>(server.getQueueServer());
-                crashedTasksList.add(
-                        currentWorkingTasks.get(server.getServerId())
-                );
+
+                if (currentWorkingTasks.containsKey(server.getServerId())) {
+                    crashedTasksList.add(currentWorkingTasks.get(server.getServerId()));
+                }
+
+                System.out.println("Crashed tasks: "+crashedTasksList.stream().map(KeyValueObject::getKey).collect(Collectors.toList()));
+
                 sendCrashedServerTasks(crashedTasksList, serverId);
 
 //                Queue<KeyValueObject> crashedTasks = server.getQueueServer();
