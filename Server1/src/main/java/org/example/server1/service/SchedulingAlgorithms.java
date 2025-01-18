@@ -10,6 +10,7 @@ import org.example.server1.component.RabbitMQ_consumer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -137,117 +138,19 @@ public class SchedulingAlgorithms {
     public void executeCATF(){
         for (String serverId : servers.keySet()) {
             if(!serverSwitches.containsKey(serverId)){
+                Future<?> future = executorService.submit(() -> {completeAndThenFetchModel(serverId);});
+                serverTaskMap.put(serverId, future);
                 serverSwitches.put(serverId, true);
-                executorService.submit(() -> {completeAndThenFetchModel(serverId);});
             }
 
         }
 
     }
-   /* KeyValueObject keyValueObject1 = null;
-    KeyValueObject keyValueObject2 = null;
-    String message;
-    boolean runningCrashedTasks = false;
-
-    private void completeAndThenFetchModel(String serverId) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        final Object lock1 = new Object();
-        final Object lock2 = new Object();
-
-        executorService.submit(() -> {
-            while (serverSwitches.get(serverId)){
-                try {
-                    keyValueObject1 = crashedTasks.take();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-                System.out.println("crashedTasks: " + keyValueObject1);
-
-                synchronized (lock1) {
-                    lock1.notify();
-                    runningCrashedTasks = true;
-                }
-
-//                synchronized (lock2) {
-//                    lock2.notify();
-//                    runningCrashedTasks = true;
-//                }
-            }
-        });
-
-
-        executorService.submit(() -> {
-            while (serverSwitches.get(serverId)) {
-
-                try {
-                    if(crashedTasks.isEmpty()){
-                        message = dynamicBlockingQueue.take();
-
-                        keyValueObject2 = objectMapper.readValue(message, KeyValueObject.class);
-                        currentWorkingTask1.put(serverId, keyValueObject1);
-                        System.out.println("Running: " + serverId);
-                    }
-                    else{
-                        keyValueObject2 = crashedTasks.poll();
-                        System.out.println("crashedTasks: " + keyValueObject2);
-                    }
-
-                    if(runningCrashedTasks){
-                        synchronized (lock1){
-                            try {
-                                lock1.wait();
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-                    }
-                    else{
-                        synchronized (lock1) {
-                            lock1.notify();
-                        }
-                    }
-
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } catch (JsonProcessingException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-
-        executorService.submit(() -> {
-            while (serverSwitches.get(serverId)){
-
-                synchronized (lock1){
-                    try {
-                        lock1.wait();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-
-                try {
-                    String url = "http://servers:8084/api/server?serverId=" + serverId;
-//                    currentWorkingTask2.put(serverId, keyValueObject);
-                    if(runningCrashedTasks){
-                        restTemplate.postForEntity(url, keyValueObject1, String.class);
-                    }
-                    else{
-                        restTemplate.postForEntity(url, keyValueObject2, String.class);
-                    }
-
-                    currentWorkingTask1.remove(serverId);
-                } catch (Exception e) {
-                    System.err.printf("Error sending to Server %s: %s\n", serverId, e.getMessage());
-                }
-            }
-        });
-    }*/
 
     private void completeAndThenFetchModel(String serverId) {
         ObjectMapper objectMapper = new ObjectMapper();
 
-        while (serverSwitches.get(serverId)) {
+        while (!Thread.currentThread().isInterrupted()) {
             KeyValueObject keyValueObject;
             String message;
 
@@ -256,13 +159,11 @@ public class SchedulingAlgorithms {
                 keyValueObject = objectMapper.readValue(message, KeyValueObject.class);
                 currentWorkingTask1.put(serverId, keyValueObject);
 
-                try {
-                    String url = "http://servers:8084/api/server?serverId=" + serverId;
-                    restTemplate.postForEntity(url, keyValueObject, String.class);
-                    currentWorkingTask1.remove(serverId);
-                } catch (Exception e) {
-                    System.err.printf("Error sending to Server %s: %s\n", serverId, e.getMessage());
-                }
+                System.out.println(serverId + ": " + keyValueObject.getKey());
+
+                String url = "http://servers:8084/api/server?serverId=" + serverId;
+                restTemplate.postForEntity(url, keyValueObject, String.class);
+                currentWorkingTask1.remove(serverId);
 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

@@ -22,6 +22,7 @@ public class ServerController {
     private final ServerSimulator serverSimulator;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private int nameOfServer = 1;
 
 
     public ServerController(RestTemplate restTemplate, ServerSimulator serverSimulator) {
@@ -35,13 +36,12 @@ public class ServerController {
             serverSimulator.setServers(new ConcurrentHashMap<>());
         }
 
-        int initialSize = serverSimulator.getServers().size();
         for (int i = 0; i < noOfQueues; i++) {
-            int key = initialSize + i + 1;
             serverSimulator.getServers().put(
-                    Integer.toString(key),
-                    new ServerObject(Integer.toString(key), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed())
+                    Integer.toString(nameOfServer),
+                    new ServerObject(Integer.toString(nameOfServer), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed())
             );
+            nameOfServer++;
         }
 
         serverSimulator.updateServerSim();
@@ -56,14 +56,14 @@ public class ServerController {
             serverSimulator.setServers(new ConcurrentHashMap<>());
         }
 
-        int i = serverSimulator.getServers().size();
-
         serverSimulator.getServers().put(
-                Integer.toString(i+1),
-                new ServerObject(Integer.toString(i+1), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed()));
+                Integer.toString(nameOfServer),
+                new ServerObject(Integer.toString(nameOfServer), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed()));
 
         serverSimulator.updateServerSim();
         notifyNewServers();
+
+        nameOfServer++;
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
@@ -73,7 +73,7 @@ public class ServerController {
         ServerObject server = serverSimulator.getServers().get(serverId);
 
         if (server == null) {
-            System.out.printf("Null server %s,:%s\n", serverId, keyValueObject.getServerKey());
+            System.out.printf("Null server %s,:%s\n", serverId, keyValueObject.getKey());
         }
         else{
             server.getQueueServer().put(keyValueObject);
@@ -116,6 +116,8 @@ public class ServerController {
                 serversSpeeds.put(serverObject.getServerId(), serverObject.getServerSpeed());
             }
         }
+
+        System.out.println("number of servers: "+serversSpeeds.size());
 
         return serversSpeeds;
     }

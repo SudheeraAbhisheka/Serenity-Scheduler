@@ -29,9 +29,12 @@ public class Kafka_consumer {
     public void listen_1to10(String message) throws InterruptedException {
         if(crashedTasks){
             synchronized(lock){
+                System.out.println("Locking..");
                 lock.wait();
+                System.out.println("Unlocking..");
             }
         }
+        System.out.println(".........................");
 
         switch(schedulingAlgorithm){
             case "complete-and-then-fetch": {

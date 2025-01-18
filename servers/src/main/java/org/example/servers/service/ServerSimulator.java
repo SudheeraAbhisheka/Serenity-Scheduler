@@ -109,9 +109,9 @@ public class ServerSimulator {
                     if (atomicCount.get() > 1) {
                         atomicCount.decrementAndGet();
                         System.out.println("atomic count: "+atomicCount);
-                        synchronized (sb) {
-                            sb.append(keyValueObject).append("\n");
-                        }
+//                        synchronized (sb) {
+//                            sb.append(keyValueObject).append("\n");
+//                        }
 
                         waitFromCreate = keyValueObject.getStartOfProcessAt() - keyValueObject.getGeneratedAt();
                         atomicTotalWait.set(atomicTotalWait.get() + waitFromCreate);
@@ -127,7 +127,7 @@ public class ServerSimulator {
                         handledByServer.merge(serverId, 1, Integer::sum);
 
                         synchronized (sb) {
-                            sb.append(keyValueObject).append("\n");
+//                            sb.append(keyValueObject).append("\n");
                             sb.append("Sum of wait from generate to process: ").append(atomicTotalWait).append("\n");
                             sb.append("Handled by servers: ").append(handledByServer).append("\n");
                         }
@@ -168,7 +168,6 @@ public class ServerSimulator {
 
             if (count < 1) {
                 runningServers.remove(serverId);
-//                crashedServer(servers.remove(serverId));
                 ServerObject server = servers.remove(serverId);
 
                 List<KeyValueObject> crashedTasksList = new ArrayList<>(server.getQueueServer());
@@ -177,15 +176,9 @@ public class ServerSimulator {
                     crashedTasksList.add(currentWorkingTasks.get(server.getServerId()));
                 }
 
-                System.out.println("Crashed tasks: "+crashedTasksList.stream().map(KeyValueObject::getKey).collect(Collectors.toList()));
+                System.out.println("Crashed tasks: "+crashedTasksList.stream().map(KeyValueObject::getKey).toList());
 
                 sendCrashedServerTasks(crashedTasksList, serverId);
-
-//                Queue<KeyValueObject> crashedTasks = server.getQueueServer();
-//                crashedTasks.add(
-//                        currentWorkingTasks.get(server.getServerId())
-//                );
-//                sendCrashedServerTasks(crashedTasks);
 
                 iterator.remove();
             } else {
@@ -193,35 +186,6 @@ public class ServerSimulator {
             }
         }
 
-    }
-
-    private void crashedServer(ServerObject server){
-        BlockingQueue<KeyValueObject> queueServer = server.getQueueServer();
-        KeyValueObject unfinishedTask = currentWorkingTasks.get(server.getServerId());
-
-        System.out.println("queue server: "+queueServer);
-
-//        while(!queueServer.isEmpty()){
-//            for(ServerObject serverObject : servers.values()){
-//                if(queueServer.isEmpty()){
-//                    return;
-//                }
-//                else{
-//                    if(serverObject.getQueueServer().remainingCapacity() > 0){
-//                        serverObject.getQueueServer().add(queueServer.remove());
-//                    }
-//                }
-//            }
-//        }
-    }
-
-    public void sendCrashedServerTasks2(Queue<KeyValueObject> queueServer) {
-        try {
-            String url = "http://servers:8084/api/server2";
-            restTemplate.postForEntity(url, queueServer, Queue.class);
-        } catch (Exception e) {
-            System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
-        }
     }
 
     public void sendCrashedServerTasks(List<KeyValueObject> crashedTasksList, String serverId) {
@@ -234,7 +198,7 @@ public class ServerSimulator {
 
             ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
 
-            System.out.printf("Successfully sent tasks. Response: %s\n", response.getBody());
+//            System.out.printf("Successfully sent tasks. Response: %s\n", response.getBody());
         } catch (Exception e) {
             System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
         }

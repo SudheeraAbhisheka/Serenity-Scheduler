@@ -105,23 +105,31 @@ public class ConsumerOneController {
             );
         }
 
+        Future<?> future = schedulingAlgorithms.getServerTaskMap().get(serverId.toString());
+        boolean successful = false;
+        if (future == null) {
+            System.out.println(future);
+        }
+        else{
+            successful = future.cancel(true);
+            if(successful) {
+                schedulingAlgorithms.getServerTaskMap().remove(serverId.toString());
+            }
+            else{
+                System.out.println("Failed to crash server " + serverId);
+            }
+        }
+
         schedulingAlgorithms.getServerSwitches().put(serverIdString, false);
-
         Kafka_consumer.setCrashedTasks(true);
-
         System.out.println("Crashed tasks: "+crashedTasks.stream().map(KeyValueObject::getKey).toList());
 
         for(KeyValueObject task : crashedTasks) {
-//            if(schedulingAlgorithms.isRunning()){
-//                schedulingAlgorithms.getCrashedTasks().add(task);
-//            }
-//            else{
-//                schedulingAlgorithms.getDynamicBlockingQueue().put(task.toString());
-//            }
-//
+            System.out.println("Before put: "+task.getKey());
             schedulingAlgorithms.getDynamicBlockingQueue().put(
                     objectMapper.writeValueAsString(task)
             );
+            System.out.println("After put: "+task.getKey());
         }
 
         Kafka_consumer.setCrashedTasks(false);
@@ -131,36 +139,5 @@ public class ConsumerOneController {
         synchronized (lock) {
             lock.notify();
         }
-
-//        for(KeyValueObject task : crashedTasksThreadSafe) {
-//            if(schedulingAlgorithms.isRunning()){
-//                schedulingAlgorithms.getCrashedTasks().add(task);
-//            }
-//            else{
-//                schedulingAlgorithms.getDynamicBlockingQueue().put(task.toString());
-//            }
-//        }
-//
-//        schedulingAlgorithms.getCrashedTasks().addAll(crashedTasksThreadSafe);
-
-//        new Thread(() ->{
-//            for(KeyValueObject task : crashedTasksThreadSafe){
-//                if(task == null){
-//                    System.out.println("Null value");
-//                }
-//                else{
-//                    System.out.println("Sending from the new thread");
-//                    try {
-//                        schedulingAlgorithms.getDynamicBlockingQueue().put(task.toString());
-//                    } catch (InterruptedException e) {
-//                        throw new RuntimeException(e);
-//                    }
-//                    System.out.println("Sent from the new thread");
-//                }
-//            }
-//            crashedTasksThreadSafe.clear();
-//        }).start();
-
-//        return responseEntity;
     }
 }
