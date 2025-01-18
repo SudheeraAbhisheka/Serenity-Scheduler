@@ -1,12 +1,15 @@
 package org.example.servers_terminal.service;
 
+import com.example.KeyValueObject;
 import com.example.SpeedAndCapObj;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -21,8 +24,8 @@ public class ServerService {
         this.restTemplate = restTemplate;
     }
 
-    public boolean setServersDefault(int noOfQueues, SpeedAndCapObj speedAndCapObj){
-        String url = "http://localhost:8084/api/set-servers-default?noOfQueues=" + noOfQueues;
+    public boolean setServersMany(int noOfQueues, SpeedAndCapObj speedAndCapObj){
+        String url = "http://localhost:8084/api/set-server-many?noOfQueues=" + noOfQueues;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -37,7 +40,7 @@ public class ServerService {
     }
 
     public boolean setServersOneByOne(SpeedAndCapObj speedAndCapObj){
-        String url = "http://localhost:8084/api/set-servers-onebyone";
+        String url = "http://localhost:8084/api/set-server-one";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -51,33 +54,27 @@ public class ServerService {
         }
     }
 
-    public boolean setServers(int queueCapacity, LinkedHashMap<String, Double> servers){
-        String url = "http://localhost:8084/api/set-servers?queueCapacity=" + queueCapacity;
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+    public boolean setHeartBeatIntervals(Map<String, Integer> heartBeatIntervals) {
+        try{
+            String url = "http://localhost:8084/api/set-heart-beat-intervals";
 
-        HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(servers, headers);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Integer>> request = new HttpEntity<>(heartBeatIntervals, headers);
 
-        try {
-            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
-            return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception e) {
-            return false;
+            restTemplate.postForEntity(url, request, String.class);
+
+            return true;
         }
-    }
+        catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.CONFLICT) {
+                return false;
+            } else if(e.getStatusCode() == HttpStatus.BAD_REQUEST){
+                return false;
+            }
 
-    public boolean setNewServers(LinkedHashMap<String, Double> newServers){
-        String url = "http://localhost:8084/api/set-new-servers";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<LinkedHashMap<String, Double>> request = new HttpEntity<>(newServers, headers);
-
-        try {
-            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
-            return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception e) {
-            return false;
+            throw e;
         }
+
     }
 }

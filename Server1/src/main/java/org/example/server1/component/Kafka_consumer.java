@@ -3,6 +3,8 @@ package org.example.server1.component;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.Synchronized;
+import org.example.server1.config.RabbitMQConfig;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -34,11 +36,12 @@ public class Kafka_consumer {
                 System.out.println("Unlocking..");
             }
         }
-        System.out.println(".........................");
 
         switch(schedulingAlgorithm){
             case "complete-and-then-fetch": {
-                blockingQueueCompleteF.put(message);
+                if (false) {
+                    blockingQueueCompleteF.put(message);
+                }
                 break;
             }
 
@@ -56,11 +59,4 @@ public class Kafka_consumer {
 
         }
     }
-
-//    @KafkaListener(topics = "topic_11-20", groupId = "my-group")
-//    public void listen_11to21(String message) {
-//        String routingKey = "consumer.two";
-//        rabbitTemplate.convertAndSend(RabbitMQConfig.DIRECT_EXCHANGE, routingKey, message);
-//
-//    }
 }

@@ -2,28 +2,22 @@ package org.example.servers_terminal.gui;
 
 import com.example.SpeedAndCapObj;
 import javafx.application.Platform;
-import javafx.beans.property.IntegerProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.geometry.Insets;
-import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
-import javafx.stage.Stage;
 import org.example.servers_terminal.service.ServerService;
 import org.springframework.context.ApplicationContext;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ServerConfigUI {
     private final ServerService serverService;
     private TextArea logArea;
     private final GridPane root;
-
 
     public ServerConfigUI(ApplicationContext context) {
         this.serverService = context.getBean(ServerService.class);
@@ -35,6 +29,12 @@ public class ServerConfigUI {
         root.setPadding(new Insets(10));
         root.setHgap(10);
         root.setVgap(10);
+
+        TextField heartBeatCheckingField = new TextField("3000");
+        heartBeatCheckingField.setPromptText("Heartbeat Checking");
+        TextField heartBeatMakingField = new TextField("1000");
+        heartBeatMakingField.setPromptText("Heartbeat Making");
+        Button setHeartBeatButton = new Button("Set Heartbeat");
 
         TextField noOfServersField = new TextField();
         noOfServersField.setPromptText("Number of Servers");
@@ -56,16 +56,44 @@ public class ServerConfigUI {
         logArea.setEditable(false);
         logArea.setPrefRowCount(5);
 
-        root.add(noOfServersField, 0, 0);
-        root.add(serverSpeedsField, 1, 0);
-        root.add(serverQueueCapsField, 2, 0);
-        root.add(submitManyButton, 3, 0);
-        root.add(serverSpeedField, 0, 1);
-        root.add(serverQueueCapacityField, 1, 1);
-        root.add(submitOneButton, 2, 1);
-        root.add(exitButton, 0, 2);
-        root.add(logArea, 0, 3, 4, 1);
+        root.add(heartBeatCheckingField,   0, 0);
+        root.add(heartBeatMakingField,     1, 0);
+        root.add(setHeartBeatButton,       2, 0);
 
+        root.add(noOfServersField,         0, 1);
+        root.add(serverSpeedsField,        1, 1);
+        root.add(serverQueueCapsField,     2, 1);
+        root.add(submitManyButton,         3, 1);
+
+        root.add(serverSpeedField,         0, 2);
+        root.add(serverQueueCapacityField, 1, 2);
+        root.add(submitOneButton,          2, 2);
+        root.add(exitButton,               0, 3);
+        root.add(logArea, 0, 4, 4, 1);
+
+        setHeartBeatButton.setOnAction(e -> {
+            try {
+                int heartBeatChecking = Integer.parseInt(heartBeatCheckingField.getText());
+                int heartBeatMaking = Integer.parseInt(heartBeatMakingField.getText());
+
+                if (heartBeatChecking <= heartBeatMaking) {
+                    appendLog("Heartbeat Checking interval must be greater than Heartbeat Making interval");
+                    return;
+                }
+
+                boolean successSetHeartBeat = serverService.setHeartBeatIntervals(
+                        Map.of(
+                                "checking", heartBeatChecking,
+                                "making", heartBeatMaking
+                        )
+                );
+
+                appendLog("Heartbeat intervals set: " + successSetHeartBeat);
+
+            } catch (NumberFormatException ex) {
+                appendLog("Invalid heartbeat input");
+            }
+        });
 
         submitOneButton.setOnAction(e -> {
             double serverSpeed = 0.0;
@@ -90,6 +118,10 @@ public class ServerConfigUI {
             );
             appendLog("Server submitted: " + success + " with speed: " + serverSpeed +
                     " and queue capacity: " + serverQueueCapacity);
+
+            if(success){
+                root.getChildren().removeIf(node -> GridPane.getRowIndex(node) == 0);
+            }
         });
 
         submitManyButton.setOnAction(e -> {
@@ -98,16 +130,20 @@ public class ServerConfigUI {
                 double serversSpeed = Double.parseDouble(serverSpeedsField.getText());
                 int serversQueueCap = Integer.parseInt(serverQueueCapsField.getText());
 
-                boolean success = serverService.setServersDefault(noOfServers, new SpeedAndCapObj(serversSpeed, serversQueueCap));
+                boolean success = serverService.setServersMany(noOfServers, new SpeedAndCapObj(serversSpeed, serversQueueCap));
                 appendLog(noOfServers + " servers submitted: " + success);
+
+                if(success){
+                    root.getChildren().removeIf(node -> GridPane.getRowIndex(node) == 0);
+                }
 
             } catch (NumberFormatException ex) {
                 appendLog("Invalid input in default fields");
             }
+
         });
 
         exitButton.setOnAction(e -> Platform.exit());
-
     }
 
     private void appendLog(String message) {

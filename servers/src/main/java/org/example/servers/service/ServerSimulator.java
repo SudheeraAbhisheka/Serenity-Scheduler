@@ -6,7 +6,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.example.servers.controller.ServerControllerEmitter;
 import org.springframework.http.*;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -15,7 +14,6 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 @Service
 public class ServerSimulator {
@@ -36,6 +34,10 @@ public class ServerSimulator {
     private final ConcurrentMap<String, Future<?>> serverTaskMap = new ConcurrentHashMap<>();
     private final RestTemplate restTemplate;
     private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTasks = new ConcurrentHashMap<>();
+    @Setter
+    private int checkingHeartBeatIntervals = 3000;
+    @Setter
+    private int makingHeartBeatIntervals = 1000;
 
     public ServerSimulator(ServerControllerEmitter emitter, RestTemplate restTemplate) {
         this.emitter = emitter;
@@ -45,15 +47,22 @@ public class ServerSimulator {
         aliveServers = new ConcurrentHashMap<>();
 
         new Thread(() -> {
-            while(true){
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            while (true) {
                 checkingHeartBeat();
                 try {
-                    Thread.sleep(3000);
+                    Thread.sleep(checkingHeartBeatIntervals);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
             }
         }).start();
+
     }
 
     public void updateServerSim() {
@@ -82,7 +91,7 @@ public class ServerSimulator {
             while (isRunning.get()) {
                 aliveServers.merge(serverId, 1, Integer::sum);
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(makingHeartBeatIntervals);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
@@ -128,7 +137,7 @@ public class ServerSimulator {
 
                         synchronized (sb) {
 //                            sb.append(keyValueObject).append("\n");
-                            sb.append("Sum of wait from generate to process: ").append(atomicTotalWait).append("\n");
+                            sb.append("Sum of wait from generate to process: ").append(atomicTotalWait).append("milliseconds.\n");
                             sb.append("Handled by servers: ").append(handledByServer).append("\n");
                         }
 
@@ -156,17 +165,22 @@ public class ServerSimulator {
         atomicTotalWait.set(0);
         handledByServer.clear();
         emitter.sendUpdate(s);
-//        System.out.println(s);
+        System.out.println(s);
     }
 
     private void checkingHeartBeat(){
         Iterator<Map.Entry<String, Integer>> iterator = aliveServers.entrySet().iterator();
+        int idealHeartBeat = checkingHeartBeatIntervals/makingHeartBeatIntervals - 1;
+        if(idealHeartBeat == 0){
+            idealHeartBeat = 1;
+        }
+
         while (iterator.hasNext()) {
             Map.Entry<String, Integer> entry = iterator.next();
             String serverId = entry.getKey();
-            Integer count = entry.getValue();
+            Integer heartBeat = entry.getValue();
 
-            if (count < 1) {
+            if (heartBeat < idealHeartBeat) {
                 runningServers.remove(serverId);
                 ServerObject server = servers.remove(serverId);
 
@@ -176,9 +190,11 @@ public class ServerSimulator {
                     crashedTasksList.add(currentWorkingTasks.get(server.getServerId()));
                 }
 
-                System.out.println("Crashed tasks: "+crashedTasksList.stream().map(KeyValueObject::getKey).toList());
+                System.out.printf("Crashed tasks - %s: %s", serverId, crashedTasksList.stream().map(KeyValueObject::getKey).toList());
 
-                sendCrashedServerTasks(crashedTasksList, serverId);
+                if(!crashedTasksList.isEmpty()){
+                    sendCrashedServerTasks(crashedTasksList, serverId);
+                }
 
                 iterator.remove();
             } else {

@@ -44,12 +44,6 @@ public class RabbitMQ_consumer {
 
 
     }
-
-    @RabbitListener(queues = RabbitMQConfig.CONSUMER_TWO_QUEUE)
-    public void receiveMessageFromConsumerTwoQueue(String message) {
-
-
-    }
 }
 
 

@@ -42,8 +42,6 @@ public class SchedulingAlgorithms {
     @Getter
     private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTask1 = new ConcurrentHashMap<>();
     @Getter
-    private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTask2 = new ConcurrentHashMap<>();
-    @Getter
     private final ConcurrentHashMap<String, Boolean> serverSwitches = new ConcurrentHashMap<>();
 
     @Autowired
@@ -161,7 +159,7 @@ public class SchedulingAlgorithms {
 
                 System.out.println(serverId + ": " + keyValueObject.getKey());
 
-                String url = "http://servers:8084/api/server?serverId=" + serverId;
+                String url = "http://servers:8084/api/assigning-to-servers?serverId=" + serverId;
                 restTemplate.postForEntity(url, keyValueObject, String.class);
                 currentWorkingTask1.remove(serverId);
 
@@ -285,52 +283,6 @@ public class SchedulingAlgorithms {
         }
     }
 
-/*
-    public HashMap<String, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) throws JsonProcessingException {
-        // Greedy method
-        ObjectMapper objectMapper = new ObjectMapper();
-        HashMap<String, String> taskAssignments = new HashMap<>();
-        tasks.sort((t1, t2) -> Double.compare(t2.getWeight(), t1.getWeight()));
-        Map<String, Double> serverLoads = new HashMap<>();
-
-        for (String serverId : servers.keySet()) {
-            serverLoads.put(serverId, 0.0);
-        }
-
-        for (KeyValueObject task : tasks) {
-            double taskWeight = task.getWeight();
-            String bestServer = null;
-            double bestLoadAfterAssignment = Double.MAX_VALUE;
-            for (Map.Entry<String, Double> entry : serverLoads.entrySet()) {
-                String serverId = entry.getKey();
-                double currentLoad = entry.getValue();
-                double serverSpeed = servers.get(serverId);
-                double taskTime = taskWeight / serverSpeed;
-                double newLoad = currentLoad + taskTime;
-                if (newLoad < bestLoadAfterAssignment) {
-                    bestLoadAfterAssignment = newLoad;
-                    bestServer = serverId;
-                }
-            }
-            taskAssignments.put( objectMapper.writeValueAsString(task), bestServer);
-            serverLoads.put(bestServer, bestLoadAfterAssignment);
-        }
-
-        double[] totalCompletionTime = {0.0};
-
-//        taskAssignments.forEach((task, serverId) -> {
-//            double completionTime = task.getWeight() / servers.get(serverId);
-//            System.out.println("serverId: " + serverId + " taskWeight: " + task.getWeight()
-//                    + " completionTime: " + completionTime);
-//            totalCompletionTime[0] += completionTime;
-//        });
-
-//        System.out.println("Total completion time: " + totalCompletionTime[0]);
-
-        return taskAssignments;
-    }
-*/
-
     private Map<String, String> weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers,
                                                    Map<String, Integer> remainingCaps, Map<String, Double> currentServerLoads) throws JsonProcessingException {
         Map<String, String> taskAssignments = new HashMap<>();
@@ -372,117 +324,6 @@ public class SchedulingAlgorithms {
             taskAssignments.put(objectMapper.writeValueAsString(task), bestServer);
 
         }
-
         return taskAssignments;
     }
-
-
-/*
-    public Map<KeyValueObject, String> weightLoadBalancing(ArrayList<KeyValueObject> keyValueObjects, LinkedHashMap<String, Double> servers){
-        Map<KeyValueObject, String> taskServersMap = new HashMap<>();
-
-        WightedLBObject[][] wLBArray;
-
-        wLBArray = new WightedLBObject[keyValueObjects.size()][servers.size()];
-
-        int i = 0;
-
-        for(KeyValueObject keyValueObject : keyValueObjects){
-            int j = 0;
-            for (Map.Entry<String, Double> entry : servers.entrySet()) {
-                String serverId = entry.getKey();
-                Double serverSpeed = entry.getValue();
-
-                wLBArray[i][j] = new WightedLBObject(serverId, serverSpeed, keyValueObject);
-                wLBArray[i][j].setTime(keyValueObject.getWeight() / serverSpeed);
-                j++;
-            }
-            i++;
-        }
-
-        for (int taskId = 0; taskId < wLBArray.length; taskId++) {
-            double leastTime = wLBArray[taskId][0].getTime();
-            String selectedServerId = wLBArray[taskId][0].getServerId();
-            KeyValueObject leastTimeObj = wLBArray[taskId][0].getKeyValueObject();
-            int j = 0;
-            int selectedJ = 0;
-
-            for (int serverId = 1; serverId < wLBArray[taskId].length; serverId++) {
-                if(wLBArray[taskId][serverId].getTime() < leastTime){
-                    leastTime = wLBArray[taskId][serverId].getTime();
-                    selectedServerId = wLBArray[taskId][serverId].getServerId();
-                    leastTimeObj = wLBArray[taskId][serverId].getKeyValueObject();
-                    selectedJ = j;
-                }
-                j++;
-            }
-
-            taskServersMap.put(leastTimeObj, selectedServerId);
-
-            if (taskId + 1 < wLBArray.length) {
-                for (int k = taskId + 1; k < keyValueObjects.size(); k++) {
-                    wLBArray[k][selectedJ].setTime(
-                            wLBArray[k][selectedJ].getTime() +
-                            wLBArray[taskId][selectedJ].getTime()
-                    );
-                }
-            }
-        }
-
-        return taskServersMap;
-
-    }
-*/
-
-    /*public void weightedLoadBalancing(){
-        ArrayList<Double> taskWeight = new ArrayList<>(Arrays.asList(8.0, 7.0, 6.0, 5.0, 4.0));
-        ArrayList<Double> serverSpeeds = new ArrayList<>(Arrays.asList(10.0, 30.0, 20.0, 15.0));
-        Map<String, String> taskServersMap = new HashMap<>();
-        double[][] twoDArray = new double[taskWeight.size()][serverSpeeds.size()];
-
-        for (int i = 0; i < taskWeight.size(); i++) {
-            for (int j = 0; j < serverSpeeds.size(); j++) {
-                twoDArray[i][j] = taskWeight.get(i)/serverSpeeds.get(j);
-            }
-        }
-
-        for (int taskId = 0; taskId < twoDArray.length; taskId++) {
-            double leastTime = twoDArray[taskId][0];
-            int selectedServerId = 0;
-
-            for (int serverId = 1; serverId < twoDArray[taskId].length; serverId++) {
-                if(twoDArray[taskId][serverId] < leastTime){
-                    leastTime = twoDArray[taskId][serverId];
-                    selectedServerId = serverId;
-                }
-            }
-
-            taskServersMap.put(String.valueOf(taskId), String.valueOf(selectedServerId));
-
-//            System.out.println("task id = " + taskId);
-//            System.out.println("server id = " + selectedServerId);
-//            System.out.println("weight = " + leastTime);
-
-            if (taskId + 1 < twoDArray.length) {
-                for (int i = taskId + 1; i < taskWeight.size(); i++) {
-                    twoDArray[i][selectedServerId] += twoDArray[taskId][selectedServerId];
-
-                }
-            }
-
-
-//
-//            for (int i = 0; i < twoDArray.length; i++) {
-//                for (int j = 0; j < twoDArray[i].length; j++) {
-//                    twoDArray[i][j] = Math.round(twoDArray[i][j] * 100.0) / 100.0;
-//                    System.out.print(twoDArray[i][j] + " ");
-//
-//                }
-//                System.out.println();
-//            }
-//
-//            System.out.println();
-        }
-
-    }*/
 }

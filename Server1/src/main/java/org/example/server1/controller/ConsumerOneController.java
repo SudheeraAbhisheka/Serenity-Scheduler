@@ -106,7 +106,7 @@ public class ConsumerOneController {
         }
 
         Future<?> future = schedulingAlgorithms.getServerTaskMap().get(serverId.toString());
-        boolean successful = false;
+        boolean successful;
         if (future == null) {
             System.out.println(future);
         }

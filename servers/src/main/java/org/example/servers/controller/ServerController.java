@@ -30,7 +30,23 @@ public class ServerController {
         this.serverSimulator = serverSimulator;
     }
 
-    @PostMapping("/set-servers-default")
+    @PostMapping("/set-heart-beat-intervals")
+    public ResponseEntity<String> setHeartBeatIntervals(@RequestBody Map<String, Integer> heartBeatIntervals) {
+        int checkingIntervals = heartBeatIntervals.get("checking");
+        int makingIntervals = heartBeatIntervals.get("making");
+
+        if (serverSimulator.getServers() != null || checkingIntervals > makingIntervals) {
+            return new ResponseEntity<>(HttpStatus.CONFLICT);
+        }
+        else{
+            serverSimulator.setCheckingHeartBeatIntervals(checkingIntervals);
+            serverSimulator.setMakingHeartBeatIntervals(makingIntervals);
+
+            return new ResponseEntity<>(HttpStatus.OK);
+        }
+    }
+
+    @PostMapping("/set-server-many")
     public ResponseEntity<String> setServersDefault(@RequestParam int noOfQueues, @RequestBody SpeedAndCapObj speedAndCapObj) {
         if (serverSimulator.getServers() == null) {
             serverSimulator.setServers(new ConcurrentHashMap<>());
@@ -50,7 +66,7 @@ public class ServerController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
-    @PostMapping("/set-servers-onebyone")
+    @PostMapping("/set-server-one")
     public ResponseEntity<String> setServersOneByOne(@RequestBody SpeedAndCapObj speedAndCapObj) {
         if (serverSimulator.getServers() == null) {
             serverSimulator.setServers(new ConcurrentHashMap<>());
@@ -68,7 +84,7 @@ public class ServerController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
-    @PostMapping("/server")
+    @PostMapping("/assigning-to-servers")
     public ResponseEntity<String> handleServer1(@RequestParam String serverId, @RequestBody KeyValueObject keyValueObject) throws InterruptedException {
         ServerObject server = serverSimulator.getServers().get(serverId);
 
