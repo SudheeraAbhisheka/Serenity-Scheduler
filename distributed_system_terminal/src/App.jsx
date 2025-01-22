@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactECharts from 'echarts-for-react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+import useWebSocket from './hooks/useWebSocket';
 
 function App() {
     const [messages, setMessages] = useState([]);
-    const [serverLoads, setServerLoads] = useState({});
-    const [lastUpdated, setLastUpdated] = useState(null);
-    const [algorithmDetails, setAlgorithmDetails] = useState({ algorithm: '', messageBroker: '' });
-    const [serverId, setServerId] = useState(''); // New state for serverId input
+    const [serverId, setServerId] = useState('');
     const eventSourceRef = useRef(null);
     const messagesContainerRef = useRef(null);
+
+    const [messages8083, setMessages8083] = useState([]);
+    const messages8083ContainerRef = useRef(null);
 
     useEffect(() => {
         const sseUrl = 'http://localhost:8084/api/servers/subscribe';
@@ -18,11 +23,10 @@ function App() {
         });
 
         es.onerror = (err) => {
-            console.error('EventSource failed:', err);
+            console.error('EventSource (8084) failed:', err);
         };
 
         eventSourceRef.current = es;
-
         return () => {
             if (eventSourceRef.current) {
                 eventSourceRef.current.close();
@@ -36,39 +40,32 @@ function App() {
         }
     }, [messages]);
 
-    const fetchServerLoads = async () => {
-        try {
-            const response = await fetch('http://localhost:8084/api/get-servers');
-            if (!response.ok) {
-                throw new Error('Failed to fetch servers');
-            }
-            const data = await response.json();
-            setServerLoads(data);
-            setLastUpdated(new Date().toLocaleTimeString());
-        } catch (error) {
-            console.error('Error fetching servers:', error);
-        }
-    };
+    useEffect(() => {
+        const sseUrl8083 = 'http://localhost:8083/consumer-one/emitter/subscribe';
+        const es8083 = new EventSource(sseUrl8083);
 
-    const fetchAlgorithmDetails = async () => {
-        try {
-            const response = await fetch('http://localhost:8083/consumer-one/get-server1-details');
-            if (!response.ok) {
-                throw new Error('Failed to fetch algorithm details');
-            }
-            const data = await response.json();
-            setAlgorithmDetails(data);
-        } catch (error) {
-            console.error('Error fetching algorithm details:', error);
+        es8083.addEventListener('update', (event) => {
+            setMessages8083((prev) => [...prev, event.data]);
+        });
+
+        es8083.onerror = (err) => {
+            console.error('EventSource (8083) failed:', err);
+        };
+
+        return () => {
+            es8083.close();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (messages8083ContainerRef.current) {
+            messages8083ContainerRef.current.scrollTop = messages8083ContainerRef.current.scrollHeight;
         }
-    };
+    }, [messages8083]);
 
     const clearMessages = () => {
         setMessages([]);
-    };
-
-    const clearServerSpeeds = () => {
-        setServerLoads({});
+        setMessages8083([]);
     };
 
     const crashAServer = async () => {
@@ -87,92 +84,159 @@ function App() {
 
             const result = await response.json();
             if (result) {
-                alert(`Server with ID: ${serverId} has been successfully crashed.`);
+                toast.success(`Server with ID: ${serverId} has been successfully crashed.`);
             } else {
-                alert(`Failed to crash server with ID: ${serverId}.`);
+                toast.error(`Failed to crash server with ID: ${serverId}.`);
             }
 
-            setServerId(''); // Clear input after call
+            setServerId('');
         } catch (error) {
             console.error('Error crashing server:', error);
-            alert('Failed to crash server. Please check the console for details.');
+            toast.error('Failed to crash server. Please check the console for details.');
         }
     };
 
+    const initMessages = useWebSocket('/topic/serverInit');
+    const detailMessages = useWebSocket('/topic/serverDetails');
+
+    const [serverData, setServerData] = useState({});
+
+    useEffect(() => {
+        if (initMessages.length > 0) {
+            const latestInit = initMessages[initMessages.length - 1];
+            setServerData((prevData) => {
+                const newData = { ...prevData };
+                Object.entries(latestInit).forEach(([id, details]) => {
+                    newData[id] = {
+                        load: newData[id]?.load ?? 0,
+                        speed: details.speed,
+                        capacity: details.capacity,
+                    };
+                });
+                return newData;
+            });
+        }
+    }, [initMessages]);
+
+    useEffect(() => {
+        if (detailMessages.length > 0) {
+            const latestLoads = detailMessages[detailMessages.length - 1];
+            setServerData((prevData) => {
+                const newData = { ...prevData };
+                Object.entries(latestLoads).forEach(([id, load]) => {
+                    newData[id] = {
+                        ...newData[id],
+                        load: load,
+                    };
+                });
+                return newData;
+            });
+        }
+    }, [detailMessages]);
+
+    const serverIds = Object.keys(serverData);
+    const speeds = serverIds.map((id) => serverData[id].speed ?? 0);
+    const capacities = serverIds.map((id) => serverData[id].capacity ?? 0);
+    const loads = serverIds.map((id) => serverData[id].load ?? 0);
+
+    const capacitySeries = {
+        name: 'Capacity',
+        type: 'bar',
+        data: capacities,
+        label: {
+            show: true,
+            position: 'top',
+            formatter: (params) => {
+                return params.data === 0 ? 'Crashed' : params.data;
+            },
+        },
+        itemStyle: {
+            color: (params) => {
+                return params.data == null ? 'red' : '#5470C6';
+            },
+        },
+    };
+
+    const loadSeries = {
+        name: 'Load',
+        type: 'bar',
+        data: loads,
+        label: {
+            show: true,
+            position: 'top',
+        },
+        itemStyle: {
+            color: '#91CC75',
+        },
+    };
+
+    const chartOptions = {
+        title: {
+            text: 'Server Load vs Capacity',
+            left: 'center',
+        },
+        tooltip: {
+            trigger: 'axis',
+        },
+        legend: {
+            data: ['Capacity', 'Load'],
+            top: 30,
+        },
+        xAxis: {
+            type: 'category',
+            data: serverIds,
+            axisLabel: {
+                formatter: function (serverId, index) {
+                    const speedVal = speeds[index];
+                    return `${serverId}\n(Speed: ${speedVal})`;
+                },
+            },
+        },
+        yAxis: {
+            type: 'value',
+        },
+        series: [capacitySeries, loadSeries],
+    };
 
     return (
-        <div style={{ margin: '20px' }}>
+        <div
+            style={{
+                margin: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px'
+            }}
+        >
             <h1>Server Status Dashboard</h1>
-            <button
-                onClick={clearMessages}
+
+            {/* Chart Section */}
+            <div
                 style={{
-                    marginBottom: '10px',
-                    padding: '5px 10px',
-                    backgroundColor: '#007BFF',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
+                    border: '1px solid #aaa',
+                    padding: '20px'
                 }}
             >
-                Clear Terminal
-            </button>
+                <h3>Server Load vs. Capacity</h3>
+                <ReactECharts
+                    option={chartOptions}
+                    style={{ height: 400, width: '100%' }}
+                />
+            </div>
 
-            <button
-                onClick={clearServerSpeeds}
+            {/* Crash Server Input/Button */}
+            <div
                 style={{
-                    marginBottom: '10px',
-                    marginLeft: '10px',
-                    padding: '5px 10px',
-                    backgroundColor: '#FF5733',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
                 }}
             >
-                Clear Server Speeds
-            </button>
-
-            <button
-                onClick={fetchServerLoads}
-                style={{
-                    marginBottom: '10px',
-                    marginLeft: '10px',
-                    padding: '5px 10px',
-                    backgroundColor: '#28A745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                }}
-            >
-                Update Servers
-            </button>
-
-            <button
-                onClick={fetchAlgorithmDetails}
-                style={{
-                    marginBottom: '10px',
-                    marginLeft: '10px',
-                    padding: '5px 10px',
-                    backgroundColor: '#17A2B8',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                }}
-            >
-                Get Algorithm Details
-            </button>
-
-            <div style={{ marginTop: '20px' }}>
                 <input
                     type="text"
                     value={serverId}
                     onChange={(e) => setServerId(e.target.value)}
                     placeholder="Enter Server ID"
-                    style={{ padding: '5px', marginRight: '10px', width: '200px' }}
+                    style={{ padding: '5px', width: '200px' }}
                 />
                 <button
                     onClick={crashAServer}
@@ -187,73 +251,71 @@ function App() {
                 >
                     Crash Server
                 </button>
+                <button
+                    onClick={clearMessages}
+                    style={{
+                        padding: '5px 10px',
+                        backgroundColor: '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                    }}
+                >
+                    Clear Messages
+                </button>
             </div>
 
-            {lastUpdated && (
-                <div style={{ marginBottom: '10px', fontStyle: 'italic' }}>
-                    Last Updated: {lastUpdated}
-                </div>
-            )}
-            <div
-                ref={messagesContainerRef}
-                style={{
-                    border: '1px solid #aaa',
-                    padding: '10px',
-                    height: '300px',
-                    overflowY: 'auto',
-                }}
-            >
-                <h3>All Messages</h3>
-                <ul>
-                    {messages.map((msg, index) => (
-                        <li key={index}>{msg}</li>
-                    ))}
-                </ul>
-            </div>
+            {/* Messages from 8084 and 8083 side by side */}
             <div
                 style={{
-                    marginTop: '20px',
-                    border: '1px solid #aaa',
-                    padding: '10px',
-                    height: '200px',
-                    overflowY: 'auto',
+                    display: 'flex',
+                    gap: '20px'
                 }}
             >
-                <h3>Server Speeds</h3>
-                {Object.keys(serverLoads).length === 0 ? (
-                    <div>No servers available yet.</div>
-                ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                        <tr>
-                            <th style={{ border: '1px solid #ddd', padding: '8px' }}>Server ID</th>
-                            <th style={{ border: '1px solid #ddd', padding: '8px' }}>Speed</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {Object.entries(serverLoads).map(([serverId, speed]) => (
-                            <tr key={serverId}>
-                                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{serverId}</td>
-                                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{speed}</td>
-                            </tr>
+                {/* Left column: messages from 8084 */}
+                <div
+                    ref={messagesContainerRef}
+                    style={{
+                        flex: 1,
+                        border: '1px solid #aaa',
+                        padding: '10px',
+                        height: '200px',
+                        overflowY: 'auto'
+                    }}
+                >
+                    <h3>Message from servers</h3>
+                    <ul>
+                        {messages.map((msg, index) => (
+                            <li key={index}>{msg}</li>
                         ))}
-                        </tbody>
-                    </table>
-                )}
+                    </ul>
+                </div>
+
+                {/* Right column: messages from 8083 */}
+                <div
+                    ref={messages8083ContainerRef}
+                    style={{
+                        flex: 1,
+                        border: '1px solid #aaa',
+                        padding: '10px',
+                        height: '200px',
+                        overflowY: 'auto'
+                    }}
+                >
+                    <h3>Message from algorithm schedular</h3>
+                    <ul>
+                        {messages8083.map((msg, index) => (
+                            <li key={index}>{msg}</li>
+                        ))}
+                    </ul>
+                </div>
             </div>
-            <div
-                style={{
-                    marginTop: '20px',
-                    border: '1px solid #aaa',
-                    padding: '10px',
-                }}
-            >
-                <h3>Algorithm and Message Broker Details</h3>
-                <p><strong>Algorithm:</strong> {algorithmDetails.algorithm}</p>
-                <p><strong>Message Broker:</strong> {algorithmDetails.messageBroker}</p>
-            </div>
+
+            <ToastContainer />
         </div>
     );
+
 }
 
 export default App;

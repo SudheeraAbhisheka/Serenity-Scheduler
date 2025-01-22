@@ -5,6 +5,8 @@ import com.example.ServerObject;
 import lombok.Getter;
 import lombok.Setter;
 import org.example.servers.controller.ServerControllerEmitter;
+import org.example.servers.controller.ServerDetailsController;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -20,9 +22,9 @@ public class ServerSimulator {
     @Getter
     @Setter
     private ConcurrentHashMap<String, ServerObject> servers;
-    private final LinkedHashMap<String, Boolean> runningServers;
-    private final ConcurrentHashMap<String, Integer> aliveServers;
-    private final ExecutorService executorService;
+    private final LinkedHashMap<String, Boolean> runningServers = new LinkedHashMap<>();
+    private final ConcurrentHashMap<String, Integer> aliveServers = new ConcurrentHashMap<>();
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
     @Setter
     private AtomicInteger atomicCount = null;
     private final StringBuffer sb = new StringBuffer();
@@ -38,23 +40,23 @@ public class ServerSimulator {
     private int checkingHeartBeatIntervals = 3000;
     @Setter
     private int makingHeartBeatIntervals = 1000;
+    private final ServerDetailsController serverDetailsController;
+    private final Map<String, Map<String, Double>> serversDetails = new LinkedHashMap<>();
 
-    public ServerSimulator(ServerControllerEmitter emitter, RestTemplate restTemplate) {
+
+    public ServerSimulator(ServerControllerEmitter emitter, RestTemplate restTemplate, ServerDetailsController serverDetailsController) {
         this.emitter = emitter;
         this.restTemplate = restTemplate;
-        executorService = Executors.newCachedThreadPool();
-        runningServers = new LinkedHashMap<>();
-        aliveServers = new ConcurrentHashMap<>();
+        this.serverDetailsController = serverDetailsController;
 
         new Thread(() -> {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+            int idealHeartBeat = checkingHeartBeatIntervals/makingHeartBeatIntervals - 1;
+            if(idealHeartBeat == 0){
+                idealHeartBeat = 1;
             }
 
             while (true) {
-                checkingHeartBeat();
+                checkingHeartBeat(idealHeartBeat);
                 try {
                     Thread.sleep(checkingHeartBeatIntervals);
                 } catch (InterruptedException e) {
@@ -72,11 +74,21 @@ public class ServerSimulator {
                 serverTaskMap.put(server.getServerId(), future);
 
                 runningServers.put(server.getServerId(), null);
-                aliveServers.put(server.getServerId(), 0);
+                aliveServers.put(
+                        server.getServerId(),
+                        checkingHeartBeatIntervals/makingHeartBeatIntervals - 1
+                );
+
+                serversDetails.put(
+                        server.getServerId(),
+                        new HashMap<>(Map.of(
+                                "speed", server.getServerSpeed(),
+                                "capacity",  (double)server.getQueueServer().remainingCapacity())));
 
                 System.out.printf("Server %s started. Capacity = %s\n", server.getServerId(), server.getQueueServer().remainingCapacity());
             }
         }
+        serverDetailsController.sendServerInit(serversDetails);
     }
 
     private void processServerQueue(ServerObject server) {
@@ -86,8 +98,10 @@ public class ServerSimulator {
         long waitFromCreate;
 
         AtomicBoolean isRunning = new AtomicBoolean(true);
+        serverDetailsController.sendServerDetails(serverId, queueServer.size());
 
-        Thread heartbeatThread = new Thread(() -> {
+
+        Future<?> heartbeatFuture = executorService.submit(() -> {
             while (isRunning.get()) {
                 aliveServers.merge(serverId, 1, Integer::sum);
                 try {
@@ -99,16 +113,19 @@ public class ServerSimulator {
             }
             System.out.printf("Heartbeat thread for server %s terminated.\n", serverId);
         });
-        heartbeatThread.start();
 
         try {
             while (!Thread.currentThread().isInterrupted() && isRunning.get()) {
+                serverDetailsController.sendServerDetails(serverId, queueServer.size());
                 KeyValueObject keyValueObject = queueServer.take();
+
                 currentWorkingTasks.put(serverId, keyValueObject);
 
                 keyValueObject.setServerKey(serverId);
                 keyValueObject.setStartOfProcessAt(System.currentTimeMillis());
+
                 Thread.sleep((long) ((keyValueObject.getWeight() / serverSpeed) * 1000));
+
                 keyValueObject.setEndOfProcessAt(System.currentTimeMillis());
                 keyValueObject.setExecuted(true);
                 currentWorkingTasks.remove(serverId);
@@ -137,7 +154,7 @@ public class ServerSimulator {
 
                         synchronized (sb) {
 //                            sb.append(keyValueObject).append("\n");
-                            sb.append("Sum of wait from generate to process: ").append(atomicTotalWait).append("milliseconds.\n");
+                            sb.append("Sum of wait from generate to process: ").append(atomicTotalWait).append(" milliseconds.\n");
                             sb.append("Handled by servers: ").append(handledByServer).append("\n");
                         }
 
@@ -151,9 +168,11 @@ public class ServerSimulator {
         } finally {
             isRunning.set(false);
             try {
-                heartbeatThread.join();
+                heartbeatFuture.get();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            } catch (ExecutionException e) {
+                System.err.printf("Heartbeat task for server %s encountered an error: %s\n", serverId, e.getMessage());
             }
         }
     }
@@ -168,12 +187,8 @@ public class ServerSimulator {
         System.out.println(s);
     }
 
-    private void checkingHeartBeat(){
+    private void checkingHeartBeat(int idealHeartBeat){
         Iterator<Map.Entry<String, Integer>> iterator = aliveServers.entrySet().iterator();
-        int idealHeartBeat = checkingHeartBeatIntervals/makingHeartBeatIntervals - 1;
-        if(idealHeartBeat == 0){
-            idealHeartBeat = 1;
-        }
 
         while (iterator.hasNext()) {
             Map.Entry<String, Integer> entry = iterator.next();
@@ -183,6 +198,12 @@ public class ServerSimulator {
             if (heartBeat < idealHeartBeat) {
                 runningServers.remove(serverId);
                 ServerObject server = servers.remove(serverId);
+                serversDetails.put(
+                        serverId,
+                        new HashMap<>(Map.of(
+                                "speed", server.getServerSpeed(),
+                                "capacity",  0.0
+                        )));
 
                 List<KeyValueObject> crashedTasksList = new ArrayList<>(server.getQueueServer());
 
@@ -190,17 +211,19 @@ public class ServerSimulator {
                     crashedTasksList.add(currentWorkingTasks.get(server.getServerId()));
                 }
 
-                System.out.printf("Crashed tasks - %s: %s", serverId, crashedTasksList.stream().map(KeyValueObject::getKey).toList());
+                serverDetailsController.sendServerDetails(serverId, 0.0);
 
-                if(!crashedTasksList.isEmpty()){
-                    sendCrashedServerTasks(crashedTasksList, serverId);
-                }
+                System.out.printf("Crashed tasks - %s: %s\n", serverId, crashedTasksList.stream().map(KeyValueObject::getKey).toList());
+
+                sendCrashedServerTasks(crashedTasksList, serverId);
 
                 iterator.remove();
             } else {
                 entry.setValue(0);
             }
         }
+
+        serverDetailsController.sendServerInit(serversDetails);
 
     }
 

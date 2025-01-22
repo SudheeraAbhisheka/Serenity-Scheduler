@@ -5,6 +5,7 @@ import com.example.ServerObject;
 import com.example.SpeedAndCapObj;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.servers.ServersApplication;
 import org.example.servers.service.ServerSimulator;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -35,7 +36,7 @@ public class ServerController {
         int checkingIntervals = heartBeatIntervals.get("checking");
         int makingIntervals = heartBeatIntervals.get("making");
 
-        if (serverSimulator.getServers() != null || checkingIntervals > makingIntervals) {
+        if (serverSimulator.getServers() != null || checkingIntervals <= makingIntervals) {
             return new ResponseEntity<>(HttpStatus.CONFLICT);
         }
         else{
@@ -110,18 +111,31 @@ public class ServerController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
+    @GetMapping("/server-details")
+    public LinkedHashMap<String, Map<String, Double>> getServerDetails() {
+        LinkedHashMap<String, Map<String, Double>> serverDetails = new LinkedHashMap<>();
 
-    @PostMapping("/server2")
-    public ResponseEntity<String> handleServer2(@RequestBody KeyValueObject keyValueObject) {
-        try {
-            serverSimulator.getServers().get("1").getQueueServer().put(keyValueObject);
+        if(serverSimulator.getServers() != null) {
+            for(ServerObject server : serverSimulator.getServers().values()) {
+                double capacity = server.getQueueServer().remainingCapacity() +
+                        server.getQueueServer().size();
 
-            return ResponseEntity.status(HttpStatus.OK).body("Data processed by Server 2");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error processing data at Server 2: " + e.getMessage());
+                serverDetails.put(
+                        server.getServerId(),
+                        new HashMap<>(Map.of(
+                                "speed", server.getServerSpeed(),
+                                "capacity", capacity,
+                                "load", (double)server.getQueueServer().size()
+                        ))
+                        );
+            }
         }
+
+        System.out.println(serverDetails);
+
+        return serverDetails;
     }
+
 
     @GetMapping("/get-servers")
     public LinkedHashMap<String, Double> getServers() {
@@ -132,8 +146,6 @@ public class ServerController {
                 serversSpeeds.put(serverObject.getServerId(), serverObject.getServerSpeed());
             }
         }
-
-        System.out.println("number of servers: "+serversSpeeds.size());
 
         return serversSpeeds;
     }
@@ -225,5 +237,10 @@ public class ServerController {
         }
 
         return successful;
+    }
+
+    @PostMapping("/restart")
+    public void restartApplication() {
+        ServersApplication.restart();
     }
 }

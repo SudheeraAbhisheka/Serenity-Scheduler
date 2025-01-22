@@ -52,7 +52,7 @@ public class GeneratingMessagesUI {
         TextField minPriorityField = new TextField("1");
         minPriorityField.setPromptText("Enter Min Priority");
 
-        TextField maxPriorityField = new TextField("10");
+        TextField maxPriorityField = new TextField("3");
         maxPriorityField.setPromptText("Enter Max Priority");
 
         Button startButton = new Button("Start");

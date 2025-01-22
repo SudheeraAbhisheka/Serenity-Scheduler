@@ -69,12 +69,26 @@ public class ServerService {
         catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.CONFLICT) {
                 return false;
-            } else if(e.getStatusCode() == HttpStatus.BAD_REQUEST){
-                return false;
             }
 
             throw e;
         }
-
     }
+
+    public boolean restartServer() {
+        String url = "http://localhost:8084/api/restart";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
+            return response.getStatusCode().is2xxSuccessful();
+        } catch (Exception e) {
+            System.err.println("Error while restarting server: " + e.getMessage());
+            return false;
+        }
+    }
+
 }

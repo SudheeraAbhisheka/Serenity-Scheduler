@@ -3,6 +3,7 @@ package org.example.servers_terminal.gui;
 import com.example.SpeedAndCapObj;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -51,6 +52,7 @@ public class ServerConfigUI {
         Button submitOneButton = new Button("Submit one");
         Button submitManyButton = new Button("Submit many");
         Button exitButton = new Button("Exit");
+        Button restartServerButton = new Button("Restart Server");
 
         logArea = new TextArea();
         logArea.setEditable(false);
@@ -69,6 +71,7 @@ public class ServerConfigUI {
         root.add(serverQueueCapacityField, 1, 2);
         root.add(submitOneButton,          2, 2);
         root.add(exitButton,               0, 3);
+        root.add(restartServerButton, 3, 3);
         root.add(logArea, 0, 4, 4, 1);
 
         setHeartBeatButton.setOnAction(e -> {
@@ -141,6 +144,17 @@ public class ServerConfigUI {
                 appendLog("Invalid input in default fields");
             }
 
+        });
+
+        restartServerButton.setOnAction(e -> {
+            boolean success = serverService.restartServer();
+            if (success) {
+                appendLog("Server restarted successfully.");
+            } else {
+                appendLog("Failed to restart the server.");
+                Alert alert = new Alert(Alert.AlertType.ERROR, "Error while restarting the server.");
+                alert.showAndWait();
+            }
         });
 
         exitButton.setOnAction(e -> Platform.exit());

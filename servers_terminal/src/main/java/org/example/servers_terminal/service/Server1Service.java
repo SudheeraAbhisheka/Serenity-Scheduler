@@ -14,30 +14,6 @@ public class Server1Service {
         this.restTemplate = restTemplate;
     }
 
-    public boolean setMessageBroker(String messageBroker){
-        String url = "http://localhost:8083/consumer-one/set-message-broker";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        boolean setSuccess = false;
-
-        HttpEntity<String> request = new HttpEntity<>(messageBroker, headers);
-
-        try {
-            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.POST, request, Void.class);
-            if (response.getStatusCode().is2xxSuccessful()) {
-                System.out.println("Message broker set successfully - " + messageBroker);
-                setSuccess = true;
-            } else {
-                System.out.println("Failed to set algorithm. Status: " + response.getStatusCode());
-            }
-        } catch (Exception e) {
-            System.out.println("Exception occurred while setting algorithm: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        return setSuccess;
-    }
-
     public boolean setCompleteAndFetch() {
         String url = "http://localhost:8083/consumer-one/set-complete-and-fetch";
         HttpHeaders headers = new HttpHeaders();

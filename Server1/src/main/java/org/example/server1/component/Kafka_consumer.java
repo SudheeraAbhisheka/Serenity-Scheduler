@@ -1,5 +1,8 @@
 package org.example.server1.component;
 
+import com.example.KeyValueObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.Synchronized;
@@ -15,44 +18,52 @@ import java.util.concurrent.LinkedBlockingQueue;
 @Service
 public class Kafka_consumer {
     @Getter
-    private static final BlockingQueue<String> blockingQueueCompleteF = new LinkedBlockingQueue<>(1);
+    private final BlockingQueue<KeyValueObject> blockingQueueCompleteF = new LinkedBlockingQueue<>(1);
     @Getter
-    private static final BlockingQueue<String> blockingQueuePriorityS = new LinkedBlockingQueue<>();
+    private final BlockingQueue<KeyValueObject> blockingQueuePriorityS = new LinkedBlockingQueue<>();
     @Setter
     private String schedulingAlgorithm;
     @Getter
-    private static final ConcurrentLinkedQueue<String> wlbQueue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<KeyValueObject> wlbQueue = new ConcurrentLinkedQueue<>();
     @Setter
-    private static boolean crashedTasks = false;
+    private boolean crashedTasks = false;
     @Getter
-    private static final Object lock = new Object();
+    private final Object lock = new Object();
+    ObjectMapper objectMapper = new ObjectMapper();
 
     @KafkaListener(topics = "topic_1-10", groupId = "my-group")
-    public void listen_1to10(String message) throws InterruptedException {
+    public void listen_1to10(String message) throws InterruptedException, JsonProcessingException {
+        selectingAlgorithm(objectMapper.readValue(message, KeyValueObject.class));
+    }
+
+    @RabbitListener(queues = RabbitMQConfig.CONSUMER_ONE_QUEUE)
+    public void receiveMessageFromConsumerOneQueue(String message) throws InterruptedException, JsonProcessingException {
+        selectingAlgorithm(objectMapper.readValue(message, KeyValueObject.class));
+    }
+
+    private void selectingAlgorithm(KeyValueObject task) throws InterruptedException {
         if(crashedTasks){
             synchronized(lock){
-                System.out.println("Locking..");
+                System.out.println("blocking......");
                 lock.wait();
-                System.out.println("Unlocking..");
             }
         }
 
         switch(schedulingAlgorithm){
             case "complete-and-then-fetch": {
-                if (false) {
-                    blockingQueueCompleteF.put(message);
-                }
+                blockingQueueCompleteF.put(task);
+
                 break;
             }
 
             case "age-based-priority-scheduling": {
-                blockingQueuePriorityS.offer(message);
+                blockingQueuePriorityS.add(task);
                 break;
             }
 
             case "weight-load-balancing" :
-                wlbQueue.add(message);
-            break;
+                wlbQueue.add(task);
+                break;
 
             default:
                 throw new IllegalArgumentException("Unsupported algorithm: " + schedulingAlgorithm);
