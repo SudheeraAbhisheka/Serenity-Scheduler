@@ -25,9 +25,8 @@ public class ServerSimulator {
     private final LinkedHashMap<String, Boolean> runningServers = new LinkedHashMap<>();
     private final ConcurrentHashMap<String, Integer> aliveServers = new ConcurrentHashMap<>();
     private final ExecutorService executorService = Executors.newCachedThreadPool();
-    @Setter
-    private AtomicInteger atomicCount = null;
-    private final StringBuffer sb = new StringBuffer();
+    @Getter
+    private AtomicInteger atomicCount = new AtomicInteger();
     ServerControllerEmitter emitter;
     private final AtomicLong atomicTotalWait = new AtomicLong(0);
     @Getter
@@ -49,7 +48,7 @@ public class ServerSimulator {
         this.restTemplate = restTemplate;
         this.serverDetailsController = serverDetailsController;
 
-        new Thread(() -> {
+        executorService.submit(() -> {
             int idealHeartBeat = checkingHeartBeatIntervals/makingHeartBeatIntervals - 1;
             if(idealHeartBeat == 0){
                 idealHeartBeat = 1;
@@ -63,8 +62,32 @@ public class ServerSimulator {
                     throw new RuntimeException(e);
                 }
             }
-        }).start();
+        });
 
+        executorService.submit(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
+                serverDetailsController.sendServerInit(serversDetails);
+
+                if(servers != null){
+                    for(ServerObject server : servers.values()){
+                        if(server.getQueueServer().isEmpty()){
+                            try {
+                                Thread.sleep(10);
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                            serverDetailsController.sendServerDetails(server.getServerId(), server.getQueueServer().size());
+                        }
+                    }
+                }
+            }
+        });
     }
 
     public void updateServerSim() {
@@ -99,7 +122,6 @@ public class ServerSimulator {
 
         AtomicBoolean isRunning = new AtomicBoolean(true);
         serverDetailsController.sendServerDetails(serverId, queueServer.size());
-
 
         Future<?> heartbeatFuture = executorService.submit(() -> {
             while (isRunning.get()) {
@@ -145,20 +167,22 @@ public class ServerSimulator {
                         handledByServer.merge(serverId, 1, Integer::sum);
                     } else {
                         System.out.println("atomic count: "+atomicCount);
-                        atomicCount = null;
+                        atomicCount = new AtomicInteger();
 
                         waitFromCreate = keyValueObject.getStartOfProcessAt() - keyValueObject.getGeneratedAt();
                         atomicTotalWait.set(atomicTotalWait.get() + waitFromCreate);
 
                         handledByServer.merge(serverId, 1, Integer::sum);
 
-                        synchronized (sb) {
-//                            sb.append(keyValueObject).append("\n");
-                            sb.append("Sum of wait from generate to process: ").append(atomicTotalWait).append(" milliseconds.\n");
-                            sb.append("Handled by servers: ").append(handledByServer).append("\n");
-                        }
+                        String result = "Sum of wait from generate to process (" +
+                                handledByServer.values().stream().mapToInt(Integer::intValue).sum() +
+                                " tasks): " + atomicTotalWait.get()/1000.0 + " seconds.\n" +
+                                "Handled by servers: " + handledByServer + "\n";
 
-                        generateReport();
+                        handledByServer.clear();
+                        atomicTotalWait.set(0);
+                        emitter.sendUpdate(result);
+                        System.out.println(result);
                     }
                 }
             }
@@ -175,16 +199,6 @@ public class ServerSimulator {
                 System.err.printf("Heartbeat task for server %s encountered an error: %s\n", serverId, e.getMessage());
             }
         }
-    }
-
-
-    private void generateReport(){
-        String s = sb.toString();
-        sb.setLength(0);
-        atomicTotalWait.set(0);
-        handledByServer.clear();
-        emitter.sendUpdate(s);
-        System.out.println(s);
     }
 
     private void checkingHeartBeat(int idealHeartBeat){
@@ -217,13 +231,13 @@ public class ServerSimulator {
 
                 sendCrashedServerTasks(crashedTasksList, serverId);
 
+                serverDetailsController.sendServerInit(serversDetails);
+
                 iterator.remove();
             } else {
                 entry.setValue(0);
             }
         }
-
-        serverDetailsController.sendServerInit(serversDetails);
 
     }
 

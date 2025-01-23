@@ -180,7 +180,7 @@ function App() {
         },
         legend: {
             data: ['Capacity', 'Load'],
-            top: 30,
+            top: 20,
         },
         xAxis: {
             type: 'category',
@@ -202,7 +202,8 @@ function App() {
         <div
             style={{
                 margin: '20px',
-                display: 'flex',
+                // display: 'flex',
+                width: '1480px',
                 flexDirection: 'column',
                 gap: '20px'
             }}
@@ -285,7 +286,8 @@ function App() {
                     }}
                 >
                     <h3>Message from servers</h3>
-                    <ul>
+
+                        <ul>
                         {messages.map((msg, index) => (
                             <li key={index}>{msg}</li>
                         ))}

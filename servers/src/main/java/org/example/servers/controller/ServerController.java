@@ -214,8 +214,9 @@ public class ServerController {
 
     @PostMapping("/generate-report")
     public void generateReport(@RequestBody int count) {
-        serverSimulator.setAtomicCount(new AtomicInteger(count));
-        serverSimulator.getHandledByServer().clear();
+        serverSimulator.getAtomicCount().set(
+                serverSimulator.getAtomicCount().get() + count
+        );
     }
 
     @PostMapping("/crash-server")
