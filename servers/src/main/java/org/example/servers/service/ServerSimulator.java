@@ -6,7 +6,10 @@ import lombok.Getter;
 import lombok.Setter;
 import org.example.servers.controller.ServerControllerEmitter;
 import org.example.servers.controller.ServerDetailsController;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.example.servers.entity.KeyValueObjectEntity;
+import org.example.servers.exception.CustomDatabaseException;
+import org.example.servers.repository.KeyValueObjectRepository;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -30,7 +33,7 @@ public class ServerSimulator {
     ServerControllerEmitter emitter;
     private final AtomicLong atomicTotalWait = new AtomicLong(0);
     @Getter
-    private final ConcurrentHashMap<String, Integer> handledByServer = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> taskCompletion = new ConcurrentHashMap<>();
     @Getter
     private final ConcurrentMap<String, Future<?>> serverTaskMap = new ConcurrentHashMap<>();
     private final RestTemplate restTemplate;
@@ -41,12 +44,17 @@ public class ServerSimulator {
     private int makingHeartBeatIntervals = 1000;
     private final ServerDetailsController serverDetailsController;
     private final Map<String, Map<String, Double>> serversDetails = new LinkedHashMap<>();
+    private final Map<String, Integer> serversLoad = new ConcurrentHashMap<>();
+    private final StringBuffer sb = new StringBuffer();
+    private final KeyValueObjectRepository keyValueObjectRepository;
 
-
-    public ServerSimulator(ServerControllerEmitter emitter, RestTemplate restTemplate, ServerDetailsController serverDetailsController) {
+    public ServerSimulator(ServerControllerEmitter emitter, RestTemplate restTemplate,
+                           ServerDetailsController serverDetailsController, KeyValueObjectRepository keyValueObjectRepository ) {
         this.emitter = emitter;
         this.restTemplate = restTemplate;
         this.serverDetailsController = serverDetailsController;
+        this.keyValueObjectRepository = keyValueObjectRepository;
+
 
         executorService.submit(() -> {
             int idealHeartBeat = checkingHeartBeatIntervals/makingHeartBeatIntervals - 1;
@@ -67,7 +75,7 @@ public class ServerSimulator {
         executorService.submit(() -> {
             while (true) {
                 try {
-                    Thread.sleep(3000);
+                    Thread.sleep(500);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -83,38 +91,49 @@ public class ServerSimulator {
                                 throw new RuntimeException(e);
                             }
                             serverDetailsController.sendServerDetails(server.getServerId(), server.getQueueServer().size());
+                            serversLoad.put(server.getServerId(), server.getQueueServer().size());
                         }
                     }
                 }
+
+                serverDetailsController.sendTaskCompletion(taskCompletion);
+                serverDetailsController.sendServerDetails_(serversLoad);
             }
         });
     }
 
-    public void updateServerSim() {
-        for (ServerObject server : servers.values()) {
-            if(!runningServers.containsKey(server.getServerId())){
-                Future<?> future = executorService.submit(() -> processServerQueue(server));
-                serverTaskMap.put(server.getServerId(), future);
+    public void setAtomicCount_(int newCount){
+        atomicCount.set(atomicCount.get() + newCount);
+        serverDetailsController.sendTotalTasks(atomicCount.get());
 
-                runningServers.put(server.getServerId(), null);
+    }
+
+    public void updateNewServers() {
+        for (ServerObject server : servers.values()) {
+            String serverId = server.getServerId();
+            if(!runningServers.containsKey(serverId)){
+                Future<?> future = executorService.submit(() -> server(server));
+                serverTaskMap.put(serverId, future);
+
+                runningServers.put(serverId, null);
                 aliveServers.put(
-                        server.getServerId(),
+                        serverId,
                         checkingHeartBeatIntervals/makingHeartBeatIntervals - 1
                 );
 
                 serversDetails.put(
-                        server.getServerId(),
+                        serverId,
                         new HashMap<>(Map.of(
                                 "speed", server.getServerSpeed(),
                                 "capacity",  (double)server.getQueueServer().remainingCapacity())));
 
-                System.out.printf("Server %s started. Capacity = %s\n", server.getServerId(), server.getQueueServer().remainingCapacity());
+                System.out.printf("Server %s started. Capacity = %s\n", serverId, server.getQueueServer().remainingCapacity());
             }
         }
         serverDetailsController.sendServerInit(serversDetails);
     }
 
-    private void processServerQueue(ServerObject server) {
+    private void server(ServerObject server) {
         String serverId = server.getServerId();
         double serverSpeed = server.getServerSpeed();
         BlockingQueue<KeyValueObject> queueServer = server.getQueueServer();
@@ -122,6 +141,8 @@ public class ServerSimulator {
 
         AtomicBoolean isRunning = new AtomicBoolean(true);
         serverDetailsController.sendServerDetails(serverId, queueServer.size());
+        serversLoad.put(serverId, queueServer.size());
+
 
         Future<?> heartbeatFuture = executorService.submit(() -> {
             while (isRunning.get()) {
@@ -139,6 +160,11 @@ public class ServerSimulator {
         try {
             while (!Thread.currentThread().isInterrupted() && isRunning.get()) {
                 serverDetailsController.sendServerDetails(serverId, queueServer.size());
+                serversLoad.put(serverId, queueServer.size());
+
+                if(queueServer.isEmpty()){
+                    sendEmptyServer(serverId);
+                }
                 KeyValueObject keyValueObject = queueServer.take();
 
                 currentWorkingTasks.put(serverId, keyValueObject);
@@ -151,35 +177,50 @@ public class ServerSimulator {
                 keyValueObject.setEndOfProcessAt(System.currentTimeMillis());
                 keyValueObject.setExecuted(true);
                 currentWorkingTasks.remove(serverId);
-                System.out.println("completed: "+keyValueObject.getKey());
+
+                waitFromCreate = keyValueObject.getStartOfProcessAt() - keyValueObject.getGeneratedAt();
+                atomicTotalWait.set(atomicTotalWait.get() + waitFromCreate);
+                taskCompletion.merge(serverId, 1, Integer::sum);
+
+                System.out.println("completed: "+keyValueObject.getKey()+", priority: "+keyValueObject.getPriority());
+
+                KeyValueObjectEntity entity = new KeyValueObjectEntity();
+                entity.setKey(keyValueObject.getKey());
+                entity.setValue(keyValueObject.getValue());
+                entity.setWeight(keyValueObject.getWeight());
+                entity.setGeneratedAt(keyValueObject.getGeneratedAt());
+                entity.setExecuted(keyValueObject.isExecuted());
+                entity.setPriority(keyValueObject.getPriority());
+                entity.setStartOfProcessAt(keyValueObject.getStartOfProcessAt());
+                entity.setEndOfProcessAt(keyValueObject.getEndOfProcessAt());
+                entity.setServerKey(keyValueObject.getServerKey());
+
+                try {
+                    keyValueObjectRepository.save(entity);
+                } catch (Exception e) {
+                    throw new CustomDatabaseException("Failed to save entity: " + entity, e);
+                }
+
+
+//                synchronized (sb) {
+//                    sb.append(keyValueObject).append("\n");
+//                }
 
                 if (atomicCount != null) {
                     if (atomicCount.get() > 1) {
                         atomicCount.decrementAndGet();
                         System.out.println("atomic count: "+atomicCount);
-//                        synchronized (sb) {
-//                            sb.append(keyValueObject).append("\n");
-//                        }
-
-                        waitFromCreate = keyValueObject.getStartOfProcessAt() - keyValueObject.getGeneratedAt();
-                        atomicTotalWait.set(atomicTotalWait.get() + waitFromCreate);
-
-                        handledByServer.merge(serverId, 1, Integer::sum);
                     } else {
                         System.out.println("atomic count: "+atomicCount);
                         atomicCount = new AtomicInteger();
 
-                        waitFromCreate = keyValueObject.getStartOfProcessAt() - keyValueObject.getGeneratedAt();
-                        atomicTotalWait.set(atomicTotalWait.get() + waitFromCreate);
-
-                        handledByServer.merge(serverId, 1, Integer::sum);
-
                         String result = "Sum of wait from generate to process (" +
-                                handledByServer.values().stream().mapToInt(Integer::intValue).sum() +
-                                " tasks): " + atomicTotalWait.get()/1000.0 + " seconds.\n" +
-                                "Handled by servers: " + handledByServer + "\n";
+                                taskCompletion.values().stream().mapToInt(Integer::intValue).sum() +
+                                " tasks): " + TimeUnit.MILLISECONDS.toSeconds(atomicTotalWait.get()) + " seconds.\n" +
+                                "Handled by servers: " + taskCompletion + "\n";
 
-                        handledByServer.clear();
+
+                        taskCompletion.clear();
                         atomicTotalWait.set(0);
                         emitter.sendUpdate(result);
                         System.out.println(result);
@@ -226,6 +267,7 @@ public class ServerSimulator {
                 }
 
                 serverDetailsController.sendServerDetails(serverId, 0.0);
+                serversLoad.put(serverId, 0);
 
                 System.out.printf("Crashed tasks - %s: %s\n", serverId, crashedTasksList.stream().map(KeyValueObject::getKey).toList());
 
@@ -239,6 +281,22 @@ public class ServerSimulator {
             }
         }
 
+    }
+
+    private void sendEmptyServer(String serverId){
+        try {
+            String url = "http://server1:8083/consumer-one/empty-server?serverId=" + serverId;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Void> request = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+
+//            System.out.printf("Successfully sent tasks. Response: %s\n", response.getBody());
+        } catch (Exception e) {
+            System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
+        }
     }
 
     public void sendCrashedServerTasks(List<KeyValueObject> crashedTasksList, String serverId) {

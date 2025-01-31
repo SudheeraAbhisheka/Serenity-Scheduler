@@ -1,166 +1,179 @@
 package org.example.servers_terminal.gui;
 
-import javafx.geometry.HPos;
 import javafx.geometry.Insets;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
+import javafx.scene.Parent;
+import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.stage.Stage;
 import org.example.servers_terminal.service.Server1Service;
 import org.springframework.context.ApplicationContext;
 
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.ArrayList;
 
 public class AlgorithmSelectorUI {
+
+    private final ApplicationContext context;
     private final Server1Service server1Service;
-    private final Pane root;
+    private final VBox rootLayout;
+
+    // UI controls
+    private ComboBox<String> algorithmComboBox;
+    private CheckBox priorityCheckBox;
+    private VBox expiryAgeVBox;   // Will hold rows of (priority, expiry) input
+    private Button addRowButton;
+    private Button setButton;
 
     public AlgorithmSelectorUI(ApplicationContext context) {
+        this.context = context;
         this.server1Service = context.getBean(Server1Service.class);
-        root = new VBox();
-        show();
+
+        // Root layout container
+        rootLayout = new VBox(10);
+        rootLayout.setPadding(new Insets(15));
+
+        createUI();
     }
 
-    public void show() {
-        Label algorithmLabel = new Label("Select a Scheduling Model:");
-        Label responseLabel = new Label();
-        Label thresholdLabel = new Label("Add Threshold Times:");
-        thresholdLabel.setVisible(false);
+    private void createUI() {
+        // 1) Algorithm ComboBox
+        Label algorithmLabel = new Label("Select Algorithm:");
+        algorithmComboBox = new ComboBox<>();
+        algorithmComboBox.getItems().addAll("Complete and then fetch", "Load balancing");
+        algorithmComboBox.setValue("Complete and then fetch"); // default
 
-        Label wlbRateLabel = new Label("Enter Fixed Rate for Weight-load-balancing:");
-        TextField wlbRateInput = new TextField();
-        wlbRateLabel.setVisible(false);
-        wlbRateInput.setVisible(false);
+        HBox algorithmBox = new HBox(10, algorithmLabel, algorithmComboBox);
 
-        VBox thresholdBox = new VBox(5);
-        thresholdBox.setVisible(false);
-        Button addThresholdButton = new Button("Add Threshold");
-        addThresholdButton.setVisible(false);
+        // 2) Priority CheckBox
+        priorityCheckBox = new CheckBox("Based on priority");
 
-        Button setAlgorithmButton = new Button("Set Algorithm");
-        setAlgorithmButton.setVisible(false);
+        // 3) The Expiry Age input area (for Priority -> Expiry Age in ms)
+        expiryAgeVBox = new VBox(5);
+        expiryAgeVBox.setPadding(new Insets(10, 0, 0, 0));
 
-        GridPane grid = new GridPane();
-        grid.setPadding(new Insets(10));
-        grid.setHgap(10); // Horizontal gap between elements
-        grid.setVgap(10); // Vertical gap between elements
+        // By default, hide both the expiryAgeVBox and the addRowButton
+        expiryAgeVBox.setVisible(false);
+        expiryAgeVBox.setManaged(false);
 
-// Ensure all columns have equal width
-        ColumnConstraints column1 = new ColumnConstraints();
-        column1.setPercentWidth(33); // 33% width for each column
-        ColumnConstraints column2 = new ColumnConstraints();
-        column2.setPercentWidth(33);
-        ColumnConstraints column3 = new ColumnConstraints();
-        column3.setPercentWidth(33);
-        grid.getColumnConstraints().addAll(column1, column2, column3);
+        // Create two initial rows (minimum requirement)
+        expiryAgeVBox.getChildren().addAll(
+                createExpiryAgeRow(),
+                createExpiryAgeRow()
+        );
 
-// Align buttons in their respective cells
+        // 3.a) "Add Row" button
+        addRowButton = new Button("Add Row");
+        // Hide the "Add Row" button initially
+        addRowButton.setVisible(false);
+        addRowButton.setManaged(false);
 
-        // Add grid to root and then thresholdBox
-        root.getChildren().add(grid);
-        root.getChildren().add(thresholdBox);
+        addRowButton.setOnAction(e -> expiryAgeVBox.getChildren().add(createExpiryAgeRow()));
 
-        // Algorithm Buttons
-        Button ageBasedButton = new Button("Age-based-priority-scheduling");
-        Button completeFetchButton = new Button("Complete-and-then-Fetch");
-        Button weightLoadButton = new Button("Weight-load-balancing");
+        // Put the rows + "Add Row" button into a separate container
+        VBox priorityBox = new VBox(5, expiryAgeVBox, addRowButton);
 
-        GridPane.setHalignment(ageBasedButton, HPos.CENTER);
-        GridPane.setHalignment(completeFetchButton, HPos.CENTER);
-        GridPane.setHalignment(weightLoadButton, HPos.CENTER);
+        // Show/hide based on priorityCheckBox
+        priorityCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            expiryAgeVBox.setVisible(newVal);
+            expiryAgeVBox.setManaged(newVal);
+            addRowButton.setVisible(newVal);
+            addRowButton.setManaged(newVal);
+        });
 
-        grid.add(algorithmLabel, 0, 0, 3, 1);
-        grid.add(ageBasedButton, 0, 1);
-        grid.add(completeFetchButton, 1, 1);
-        grid.add(weightLoadButton, 2, 1);
+        // 4) "Set" button
+        setButton = new Button("Set");
+        setButton.setOnAction(e -> handleSetButton());
 
-        grid.add(thresholdLabel, 0, 2);
-        grid.add(thresholdBox, 0, 3, 2, 1);
-        grid.add(addThresholdButton, 2, 3);
-        grid.add(wlbRateLabel, 0, 4);
-        grid.add(wlbRateInput, 1, 4);
-        grid.add(setAlgorithmButton, 0, 5, 3, 1);
-        grid.add(responseLabel, 0, 6, 3, 1);
+        // Add everything to the root layout
+        rootLayout.getChildren().addAll(
+                algorithmBox,
+                priorityCheckBox,
+                priorityBox,
+                setButton
+        );
+    }
 
-        // Action handlers for scheduling models
-        ageBasedButton.setOnAction(event -> {
-            thresholdLabel.setVisible(true);
-            thresholdBox.setVisible(true);
-            addThresholdButton.setVisible(true);
-            setAlgorithmButton.setVisible(true);
-            wlbRateLabel.setVisible(false);
-            wlbRateInput.setVisible(false);
+    /**
+     * Creates a single row (HBox) containing:
+     *  - A TextField for Priority (integer)
+     *  - A TextField for Expiry Age (double)
+     */
+    private HBox createExpiryAgeRow() {
+        Label priorityLabel = new Label("Priority:");
+        TextField priorityField = new TextField();
+        priorityField.setPromptText("e.g. 1");
 
-            // Adding threshold rows
-            addThresholdButton.setOnAction(addEvent -> {
-                HBox newThresholdRow = new HBox(5);
-                Label keyLabel = new Label("Threshold " + (thresholdBox.getChildren().size() + 1) + ":");
-                TextField valueField = new TextField();
-                newThresholdRow.getChildren().addAll(keyLabel, valueField);
-                thresholdBox.getChildren().add(newThresholdRow);
-            });
+        Label expiryLabel = new Label("Expiry (ms):");
+        TextField expiryField = new TextField();
+        expiryField.setPromptText("e.g. 5000");
 
-            // Setting age-based priority scheduling
-            setAlgorithmButton.setOnAction(setEvent -> {
-                LinkedHashMap<Integer, Double> thresholdTime = new LinkedHashMap<>();
-                try {
-                    for (int i = 0; i < thresholdBox.getChildren().size(); i++) {
-                        HBox thresholdRow = (HBox) thresholdBox.getChildren().get(i);
-                        TextField valueField = (TextField) thresholdRow.getChildren().get(1);
-                        double value = Double.parseDouble(valueField.getText().trim());
-                        thresholdTime.put(i + 1, value);
+        return new HBox(10, priorityLabel, priorityField, expiryLabel, expiryField);
+    }
+
+    /**
+     * Called when the "Set" button is clicked.
+     */
+    private void handleSetButton() {
+        String selectedAlgorithm = algorithmComboBox.getValue();
+        boolean isPriorityBased = priorityCheckBox.isSelected();
+
+        // Gather data if priority-based
+        LinkedHashMap<Integer, Double> expiryAgeMap = new LinkedHashMap<>();
+        if (isPriorityBased) {
+            for (int i = 0; i < expiryAgeVBox.getChildren().size(); i++) {
+                if (expiryAgeVBox.getChildren().get(i) instanceof HBox row) {
+                    // Extract text fields
+                    List<TextField> fields = new ArrayList<>();
+                    for (var node : row.getChildren()) {
+                        if (node instanceof TextField tf) {
+                            fields.add(tf);
+                        }
                     }
-                    boolean success = server1Service.setPriorityScheduling(thresholdTime);
-                    responseLabel.setText(success
-                            ? "Algorithm set successfully - Age-based-priority-scheduling"
-                            : "Failed to set algorithm.");
-                } catch (NumberFormatException e) {
-                    responseLabel.setText("Invalid input for Threshold Times. Please enter valid numbers.");
+                    if (fields.size() == 2) {
+                        try {
+                            int priority = Integer.parseInt(fields.get(0).getText().trim());
+                            double expiryMs = Double.parseDouble(fields.get(1).getText().trim());
+                            // Insert into map
+                            expiryAgeMap.put(priority, expiryMs);
+                        } catch (NumberFormatException ex) {
+                            showAlert(Alert.AlertType.ERROR,
+                                    "Invalid Input",
+                                    "Please enter valid numeric values for priority and expiry age.");
+                            return;
+                        }
+                    }
                 }
-            });
-        });
+            }
+        }
 
-        completeFetchButton.setOnAction(event -> {
-            thresholdLabel.setVisible(false);
-            thresholdBox.setVisible(false);
-            addThresholdButton.setVisible(false);
-            setAlgorithmButton.setVisible(true);
-            wlbRateLabel.setVisible(false);
-            wlbRateInput.setVisible(false);
+        boolean success = false;
+        // Decide which method to call on server1Service
+        if ("Complete and then fetch".equals(selectedAlgorithm) && !isPriorityBased) {
+            success = server1Service.setCompleteAndFetch();
+        } else if ("Load balancing".equals(selectedAlgorithm) && !isPriorityBased) {
+            success = server1Service.setLoadBalancing();
+        } else if ("Complete and then fetch".equals(selectedAlgorithm) && isPriorityBased) {
+            success = server1Service.setPriorityCompleteFetch(expiryAgeMap);
+        } else if ("Load balancing".equals(selectedAlgorithm) && isPriorityBased) {
+            success = server1Service.setPriorityLoadBalancing(expiryAgeMap);
+        }
 
-            setAlgorithmButton.setOnAction(setEvent -> {
-                boolean success = server1Service.setCompleteAndFetch();
-                responseLabel.setText(success
-                        ? "Algorithm set successfully - Complete-and-then-Fetch"
-                        : "Failed to set algorithm.");
-            });
-        });
-
-        weightLoadButton.setOnAction(event -> {
-            thresholdLabel.setVisible(false);
-            thresholdBox.setVisible(false);
-            addThresholdButton.setVisible(false);
-            setAlgorithmButton.setVisible(true);
-            wlbRateLabel.setVisible(true);
-            wlbRateInput.setVisible(true);
-
-            setAlgorithmButton.setOnAction(setEvent -> {
-                try {
-                    int wlbFixedRate = Integer.parseInt(wlbRateInput.getText().trim());
-                    boolean success = server1Service.setWorkLoadBalancing(wlbFixedRate);
-                    responseLabel.setText(success
-                            ? "Algorithm set successfully - Weight-load-balancing"
-                            : "Failed to set algorithm.");
-                } catch (NumberFormatException e) {
-                    responseLabel.setText("Invalid input for Fixed Rate. Please enter a valid number.");
-                }
-            });
-        });
+        if (success) {
+            showAlert(Alert.AlertType.INFORMATION, "Success", "Algorithm set successfully!");
+        } else {
+            showAlert(Alert.AlertType.ERROR, "Failure", "Failed to set the algorithm.");
+        }
     }
 
-    public Pane getRoot() {
-        return root;
+    private void showAlert(Alert.AlertType alertType, String title, String content) {
+        Alert alert = new Alert(alertType);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
+
+    public Parent getRoot() {
+        return rootLayout;
     }
 }

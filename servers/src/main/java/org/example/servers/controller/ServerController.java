@@ -15,7 +15,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @RestController
 @RequestMapping("/api")
@@ -61,7 +60,7 @@ public class ServerController {
             nameOfServer++;
         }
 
-        serverSimulator.updateServerSim();
+        serverSimulator.updateNewServers();
         notifyNewServers();
 
         return new ResponseEntity<>(HttpStatus.OK);
@@ -77,7 +76,7 @@ public class ServerController {
                 Integer.toString(nameOfServer),
                 new ServerObject(Integer.toString(nameOfServer), new LinkedBlockingQueue<>(speedAndCapObj.getCap()), speedAndCapObj.getSpeed()));
 
-        serverSimulator.updateServerSim();
+        serverSimulator.updateNewServers();
         notifyNewServers();
 
         nameOfServer++;
@@ -182,11 +181,11 @@ public class ServerController {
         return serverLoads;
     }
 
-    private double getCurrentLoad(LinkedBlockingQueue<KeyValueObject> keyValueObjects, double serverSpeed){
+    private double getCurrentLoad(Queue<KeyValueObject> keyValueObjects, double serverSpeed){
         double remainingTime = 0.0;
 
         for(KeyValueObject keyValueObject : keyValueObjects) {
-            remainingTime += keyValueObject.getValue() * serverSpeed;
+            remainingTime += keyValueObject.getWeight() * serverSpeed;
         }
 
         return remainingTime;
@@ -213,10 +212,12 @@ public class ServerController {
     }
 
     @PostMapping("/generate-report")
-    public void generateReport(@RequestBody int count) {
-        serverSimulator.getAtomicCount().set(
-                serverSimulator.getAtomicCount().get() + count
-        );
+    public void generateReport(@RequestBody int newCount) {
+//        serverSimulator.getAtomicCount().set(
+//                serverSimulator.getAtomicCount().get() + newCount
+//        );
+
+        serverSimulator.setAtomicCount_(newCount);
     }
 
     @PostMapping("/crash-server")

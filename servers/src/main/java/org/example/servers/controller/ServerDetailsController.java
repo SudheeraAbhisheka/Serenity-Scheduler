@@ -19,10 +19,20 @@ public class ServerDetailsController {
     }
 
     public void sendServerDetails(String serverId, double load) {
-        Map<String, Double> serverDetails = new LinkedHashMap<>();
+//        Map<String, Double> serverDetails = new LinkedHashMap<>();
+//        serverDetails.put(serverId, load);
+//        messagingTemplate.convertAndSend("/topic/serverDetails", serverDetails);
+    }
 
-        serverDetails.put(serverId, load);
+    public void sendServerDetails_(Map<String, Integer> serversLoad) {
+        messagingTemplate.convertAndSend("/topic/serverDetails", serversLoad);
+    }
 
-        messagingTemplate.convertAndSend("/topic/serverDetails", serverDetails);
+    public void sendTotalTasks(Integer totalTasks) {
+        messagingTemplate.convertAndSend("/topic/taskCompletionTotalTasks", totalTasks);
+    }
+
+    public void sendTaskCompletion(Map<String, Integer> taskCompletion) {
+        messagingTemplate.convertAndSend("/topic/taskCompletion", taskCompletion);
     }
 }

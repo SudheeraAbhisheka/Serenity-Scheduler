@@ -7,10 +7,12 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.Synchronized;
 import org.example.server1.config.RabbitMQConfig;
+import org.example.server1.service.PriorityBasedScheduling;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -21,12 +23,12 @@ public class Kafka_consumer {
     private final BlockingQueue<KeyValueObject> blockingQueueCompleteF = new LinkedBlockingQueue<>(1);
     @Getter
     private final BlockingQueue<KeyValueObject> blockingQueuePriorityS = new LinkedBlockingQueue<>();
-    @Setter
-    private String schedulingAlgorithm;
     @Getter
-    private final ConcurrentLinkedQueue<KeyValueObject> wlbQueue = new ConcurrentLinkedQueue<>();
+    private final BlockingQueue<KeyValueObject> wlbQueue = new LinkedBlockingQueue<>();
+    private final ArrayList<KeyValueObject> arrayList = new ArrayList<>();
+    private String schedulingAlgorithm = "";
     @Setter
-    private boolean crashedTasks = false;
+    private boolean crashedTasks = true;
     @Getter
     private final Object lock = new Object();
     ObjectMapper objectMapper = new ObjectMapper();
@@ -58,6 +60,7 @@ public class Kafka_consumer {
 
             case "age-based-priority-scheduling": {
                 blockingQueuePriorityS.add(task);
+
                 break;
             }
 
@@ -66,8 +69,52 @@ public class Kafka_consumer {
                 break;
 
             default:
+//                arrayList.add(task);
                 throw new IllegalArgumentException("Unsupported algorithm: " + schedulingAlgorithm);
 
         }
     }
+
+    public void setSchedulingAlgorithm(String schedulingAlgorithm){
+        crashedTasks = false;
+        synchronized(lock){
+            lock.notify();
+        }
+        this.schedulingAlgorithm = schedulingAlgorithm;
+    }
+
+    /*public void setSchedulingAlgorithm(String schedulingAlgorithm) {
+        if(!arrayList.isEmpty()){
+            crashedTasks = true;
+
+            for(KeyValueObject task : arrayList){
+                switch(schedulingAlgorithm){
+                    case "complete-and-then-fetch": {
+                        try {
+                            blockingQueueCompleteF.put(task);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        break;
+                    }
+
+                    case "age-based-priority-scheduling": {
+                        blockingQueuePriorityS.add(task);
+                        break;
+                    }
+
+                    case "weight-load-balancing" :
+                        wlbQueue.add(task);
+                        break;
+
+                    default:
+                        throw new IllegalArgumentException("Unsupported algorithm: " + schedulingAlgorithm);
+
+                }
+            }
+        }
+
+        this.schedulingAlgorithm = schedulingAlgorithm;
+    }*/
 }

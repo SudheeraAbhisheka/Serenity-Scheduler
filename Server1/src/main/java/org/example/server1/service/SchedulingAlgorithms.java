@@ -2,9 +2,10 @@ package org.example.server1.service;
 
 import com.example.KeyValueObject;
 import lombok.Getter;
+import lombok.Setter;
 import org.example.server1.component.Kafka_consumer;
+import org.example.server1.controller.ServerControllerEmitter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
@@ -19,31 +20,28 @@ import java.util.concurrent.Executors;
 @Service
 public class SchedulingAlgorithms {
     private final RestTemplate restTemplate;
-    private final Kafka_consumer kafka_consumer;
-    private boolean waitingThreads = false;
     @Getter
+    @Setter
     private BlockingQueue<KeyValueObject> dynamicBlockingQueue;
-    private BlockingQueue<KeyValueObject> blockingQueuePriorityS;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
     @Getter
     private final BlockingQueue<KeyValueObject> crashedTasks = new LinkedBlockingQueue<>();
     @Getter
     private final ConcurrentMap<String, Future<?>> serverTaskMap = new ConcurrentHashMap<>();
-    @Getter
     private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTask = new ConcurrentHashMap<>();
     @Getter
-    private final ConcurrentHashMap<String, Boolean> serverSwitches = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Boolean> runningServers = new ConcurrentHashMap<>();
+    private final ServerControllerEmitter serverControllerEmitter;
+    private final Kafka_consumer kafka_consumer;
 
     @Autowired
-    public SchedulingAlgorithms(RestTemplate restTemplate, Kafka_consumer kafka_consumer) {
+    public SchedulingAlgorithms(RestTemplate restTemplate, Kafka_consumer kafka_consumer, ServerControllerEmitter serverControllerEmitter) {
         this.restTemplate = restTemplate;
         this.kafka_consumer = kafka_consumer;
+        this.serverControllerEmitter = serverControllerEmitter;
     }
-    private String serverApiUrl;
 
     public void executeCATF(){
-        dynamicBlockingQueue = kafka_consumer.getBlockingQueueCompleteF();
-
         LinkedHashMap<String, Double> servers = restTemplate.exchange(
                 "http://servers:8084/api/get-servers",
 //                serverApiUrl,
@@ -54,11 +52,10 @@ public class SchedulingAlgorithms {
 
         assert servers != null;
         for (String serverId : servers.keySet()) {
-            if(!serverSwitches.containsKey(serverId)){
-                System.out.println(serverId + " started");
+            if(!runningServers.containsKey(serverId)){
                 Future<?> future = executorService.submit(() -> {completeAndThenFetchModel(serverId);});
                 serverTaskMap.put(serverId, future);
-                serverSwitches.put(serverId, true);
+                runningServers.put(serverId, true);
             }
 
         }
@@ -83,95 +80,64 @@ public class SchedulingAlgorithms {
         }
     }
 
-    public void priorityBasedScheduling(LinkedHashMap<Integer, Double> thresholdTime) {
-        final Object lock = new Object();
-        ConcurrentHashMap<Integer, Queue<ArrivedTimeObject>> queuePriorityX = new ConcurrentHashMap<>();
-        dynamicBlockingQueue = new LinkedBlockingQueue<>();
-        blockingQueuePriorityS = kafka_consumer.getBlockingQueuePriorityS();
+    public void terminateServer(String serverId, List<KeyValueObject> crashedTasks, String algorithmName) throws InterruptedException {
 
-        for(Integer key : thresholdTime.keySet()) {
-            queuePriorityX.put(key, new ConcurrentLinkedQueue<>());
+        String message = "Crashed server: " + serverId + "\n";
+
+        if(currentWorkingTask.containsKey(serverId)){
+            crashedTasks.add(
+                    currentWorkingTask.remove(serverId)
+            );
         }
 
-        executorService.submit(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                KeyValueObject keyValueObject = null;
+        message += "Number of tasks replaced: " + crashedTasks.size() + "\n";
 
-                try {
-                    keyValueObject = blockingQueuePriorityS.take();
-
-                    if (waitingThreads) {
-                        synchronized (lock) {
-                            lock.notify();
-                        }
-                    }
-
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-
-                if(queuePriorityX.get(keyValueObject.getPriority()) != null){
-                    queuePriorityX.get(keyValueObject.getPriority()).add(
-                            new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject)
-                    );
-                }
+        Future<?> future = serverTaskMap.get(serverId);
+        boolean successful;
+        if (serverTaskMap.containsKey(serverId)) {
+            successful = future.cancel(true);
+            if(successful) {
+                serverTaskMap.remove(serverId);
             }
-        });
-
-        executorService.submit(() -> {
-            List<OldObject> oldObjects = new ArrayList<>();
-
-            while (!Thread.currentThread().isInterrupted()) {
-                try {
-                    for (Map.Entry<Integer, Queue<ArrivedTimeObject>> entry : queuePriorityX.entrySet()) {
-                        Integer priority = entry.getKey();
-                        Queue<ArrivedTimeObject> priorityQueue = entry.getValue();
-
-                        if (!priorityQueue.isEmpty()) {
-                            long age = System.currentTimeMillis() - priorityQueue.peek().getArrivedTime();
-
-                            if (age / 1000.0 > thresholdTime.get(priority)) {
-                                oldObjects.add(new OldObject(age, priorityQueue.poll().getKeyValueObject()));
-                            }
-
-                        }
-                    }
-
-                    if (!oldObjects.isEmpty()) {
-                        oldObjects.sort(Comparator.comparingLong(OldObject::getAge).reversed());
-                        KeyValueObject k = oldObjects.remove(0).getKeyValueObject();
-                        dynamicBlockingQueue.add(k);
-
-                    } else {
-                        boolean priorityQueuesAreEmpty = true;
-
-                        for(Queue<ArrivedTimeObject> priorityQueue : queuePriorityX.values()){
-                            if(!priorityQueue.isEmpty()){
-                                dynamicBlockingQueue.add(priorityQueue.poll().getKeyValueObject());
-                                priorityQueuesAreEmpty = false;
-
-                                break;
-                            }
-                        }
-
-                        if(priorityQueuesAreEmpty){
-                            synchronized (lock) {
-                                try {
-                                    waitingThreads = true;
-                                    lock.wait();
-                                } catch (InterruptedException e) {
-                                    Thread.currentThread().interrupt();
-                                } finally {
-                                    waitingThreads = false;
-                                }
-                            }
-                        }
-                    }
-
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
+            else{
+                System.out.println("Failed to crash server " + serverId);
             }
-        });
+        }
+
+        runningServers.put(serverId, false);
+        kafka_consumer.setCrashedTasks(true);
+
+        switch(algorithmName){
+            case "complete-and-then-fetch": {
+                for(KeyValueObject task : crashedTasks) {
+                    kafka_consumer.getBlockingQueueCompleteF().put(task);
+                }
+
+                break;
+            }
+
+            case "age-based-priority-scheduling": {
+                for(KeyValueObject task : crashedTasks) {
+                    kafka_consumer.getBlockingQueuePriorityS().add(task);
+                }
+                break;
+            }
+
+            default:
+                throw new IllegalArgumentException("Unsupported algorithm: " + algorithmName);
+
+        }
+
+        serverControllerEmitter.sendUpdate(message);
+
+        kafka_consumer.setCrashedTasks(false);
+
+        Object lock = kafka_consumer.getLock();
+
+        synchronized (lock) {
+            lock.notify();
+        }
+
     }
 }
+

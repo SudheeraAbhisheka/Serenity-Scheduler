@@ -14,6 +14,7 @@ function App() {
     const [messages8083, setMessages8083] = useState([]);
     const messages8083ContainerRef = useRef(null);
 
+    // ----- SSE for 8084 -----
     useEffect(() => {
         const sseUrl = 'http://localhost:8084/api/servers/subscribe';
         const es = new EventSource(sseUrl);
@@ -40,6 +41,7 @@ function App() {
         }
     }, [messages]);
 
+    // ----- SSE for 8083 -----
     useEffect(() => {
         const sseUrl8083 = 'http://localhost:8083/consumer-one/emitter/subscribe';
         const es8083 = new EventSource(sseUrl8083);
@@ -96,11 +98,19 @@ function App() {
         }
     };
 
+    // ----- Existing WebSocket data for server init/details -----
+    // initMessages might be something like:
+    //   [
+    //      { server1: { speed: 10, capacity: 100 }, server2: { speed: 12, capacity: 120 } },
+    //      ...
+    //   ]
     const initMessages = useWebSocket('/topic/serverInit');
+    // detailMessages is now a map of serverId -> load, for all servers at once
     const detailMessages = useWebSocket('/topic/serverDetails');
 
     const [serverData, setServerData] = useState({});
 
+    // Handle the init message (speed, capacity, etc.)
     useEffect(() => {
         if (initMessages.length > 0) {
             const latestInit = initMessages[initMessages.length - 1];
@@ -108,6 +118,7 @@ function App() {
                 const newData = { ...prevData };
                 Object.entries(latestInit).forEach(([id, details]) => {
                     newData[id] = {
+                        // preserve existing load if already set
                         load: newData[id]?.load ?? 0,
                         speed: details.speed,
                         capacity: details.capacity,
@@ -118,13 +129,16 @@ function App() {
         }
     }, [initMessages]);
 
+    // Handle the new map of loads from detailMessages
     useEffect(() => {
         if (detailMessages.length > 0) {
+            // The last message is a map, e.g.: { server1: 30.0, server2: 45.5, ... }
             const latestLoads = detailMessages[detailMessages.length - 1];
             setServerData((prevData) => {
                 const newData = { ...prevData };
                 Object.entries(latestLoads).forEach(([id, load]) => {
                     newData[id] = {
+                        // carry over existing speed/capacity (if any)
                         ...newData[id],
                         load: load,
                     };
@@ -134,6 +148,7 @@ function App() {
         }
     }, [detailMessages]);
 
+    // Extract data for the ECharts bar chart
     const serverIds = Object.keys(serverData);
     const speeds = serverIds.map((id) => serverData[id].speed ?? 0);
     const capacities = serverIds.map((id) => serverData[id].capacity ?? 0);
@@ -147,6 +162,7 @@ function App() {
             show: true,
             position: 'top',
             formatter: (params) => {
+                // If capacity is 0, you could mark it as "Crashed"
                 return params.data === 0 ? 'Crashed' : params.data;
             },
         },
@@ -198,11 +214,37 @@ function App() {
         series: [capacitySeries, loadSeries],
     };
 
+    // ----- NEW: Handle task completion info -----
+    const [totalTasks, setTotalTasks] = useState(0);
+    const [taskCompletion, setTaskCompletion] = useState({});
+
+    const totalTasksMessages = useWebSocket('/topic/taskCompletionTotalTasks');
+    const completionMessages = useWebSocket('/topic/taskCompletion');
+
+    // If the "totalTasks" is just a single integer message
+    useEffect(() => {
+        if (totalTasksMessages.length > 0) {
+            // last element in the array is the latest message
+            const latestTotal = totalTasksMessages[totalTasksMessages.length - 1];
+            setTotalTasks(latestTotal);
+        }
+    }, [totalTasksMessages]);
+
+    // If "taskCompletion" is a map of { serverId: completedTasks, ... }
+    useEffect(() => {
+        if (completionMessages.length > 0) {
+            const latestCompletion = completionMessages[completionMessages.length - 1];
+            setTaskCompletion(latestCompletion);
+        }
+    }, [completionMessages]);
+
+    // Sum of completed tasks across all servers
+    const totalCompletedTasks = Object.values(taskCompletion).reduce((sum, val) => sum + val, 0);
+
     return (
         <div
             style={{
                 margin: '20px',
-                // display: 'flex',
                 width: '1480px',
                 flexDirection: 'column',
                 gap: '20px'
@@ -224,12 +266,35 @@ function App() {
                 />
             </div>
 
+            {/* Task Completion Section */}
+            <div style={{ marginTop: '20px', border: '1px solid #aaa', padding: '10px' }}>
+                <h3>Task Completion Status</h3>
+                {Object.keys(taskCompletion).length > 0 ? (
+                    <div>
+                        <ul>
+                            {Object.entries(taskCompletion).map(([id, completed]) => (
+                                <li key={id}>
+                                    Server <strong>{id}</strong>: {completed} tasks completed
+                                </li>
+                            ))}
+                        </ul>
+                        <p>
+                            <strong>Total Completed: </strong>
+                            {totalCompletedTasks} / {totalTasks}
+                        </p>
+                    </div>
+                ) : (
+                    <p>No task completion data yet.</p>
+                )}
+            </div>
+
             {/* Crash Server Input/Button */}
             <div
                 style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '10px'
+                    gap: '10px',
+                    margin: '10px 0',
                 }}
             >
                 <input
@@ -286,8 +351,7 @@ function App() {
                     }}
                 >
                     <h3>Message from servers</h3>
-
-                        <ul>
+                    <ul>
                         {messages.map((msg, index) => (
                             <li key={index}>{msg}</li>
                         ))}
@@ -317,7 +381,6 @@ function App() {
             <ToastContainer />
         </div>
     );
-
 }
 
 export default App;

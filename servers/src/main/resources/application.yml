@@ -2,5 +2,12 @@ spring:
   application:
     name: servers
 
+  cassandra:
+    contact-points: ${SPRING_CASSANDRA_CONTACT_POINTS:cassandra}
+    port: ${SPRING_CASSANDRA_PORT:9042}
+    keyspace-name: my_keyspace
+    schema-action: create_if_not_exists
+    local-datacenter: datacenter1
+
 server:
   port: ${SERVER_PORT:8084}

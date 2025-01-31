@@ -74,4 +74,17 @@ services:
     container_name: servers
     ports:
       - "8084:8084"
+    environment:
+      - SPRING_DATA_CASSANDRA_CONTACT_POINTS=cassandra
+      - SPRING_DATA_CASSANDRA_PORT=9042
+      - SERVER_PORT=8084
+    depends_on:
+      - cassandra
+
+  cassandra:
+    image: cassandra:latest
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+
       
