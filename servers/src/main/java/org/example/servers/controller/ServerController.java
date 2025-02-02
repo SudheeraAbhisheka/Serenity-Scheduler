@@ -110,6 +110,22 @@ public class ServerController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
+    @GetMapping("/total-servers-capacity")
+    public int getTotalServersCap() {
+        int totalRemainingCapacity = 0;
+
+        if(serverSimulator.getServers() != null) {
+            for(ServerObject server : serverSimulator.getServers().values()) {
+                int remainingCapacity = server.getQueueServer().remainingCapacity();
+
+                totalRemainingCapacity += remainingCapacity;
+
+            }
+        }
+
+        return totalRemainingCapacity;
+    }
+
     @GetMapping("/server-details")
     public LinkedHashMap<String, Map<String, Double>> getServerDetails() {
         LinkedHashMap<String, Map<String, Double>> serverDetails = new LinkedHashMap<>();
@@ -168,27 +184,28 @@ public class ServerController {
     @GetMapping("/get-server-loads")
     public LinkedHashMap<String, Double> getServerLoads() {
         LinkedHashMap<String, Double> serverLoads = new LinkedHashMap<>();
+        ConcurrentHashMap<String, ServerObject> servers = serverSimulator.getServers();
+        double remainingTime;
 
-        if(serverSimulator.getServers() != null) {
-            for(ServerObject serverObject : serverSimulator.getServers().values()) {
-                serverLoads.put(
-                        serverObject.getServerId(),
-                        getCurrentLoad(serverObject.getQueueServer(), serverObject.getServerSpeed())
-                );
+        if(servers == null) {
+           return serverLoads;
+        }
+
+        for(ServerObject server : servers.values()) {
+            String serverId = server.getServerId();
+            Queue<KeyValueObject> queueOfServer = server.getQueueServer();
+            double serverSpeed = server.getServerSpeed();
+            remainingTime = 0.0;
+
+            for(KeyValueObject task : queueOfServer) {
+                remainingTime += task.getWeight() / serverSpeed;
             }
+
+            serverLoads.put(serverId, remainingTime);
+
         }
 
         return serverLoads;
-    }
-
-    private double getCurrentLoad(Queue<KeyValueObject> keyValueObjects, double serverSpeed){
-        double remainingTime = 0.0;
-
-        for(KeyValueObject keyValueObject : keyValueObjects) {
-            remainingTime += keyValueObject.getWeight() * serverSpeed;
-        }
-
-        return remainingTime;
     }
 
     public void notifyNewServers() {

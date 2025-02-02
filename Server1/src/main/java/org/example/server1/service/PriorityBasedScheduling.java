@@ -17,9 +17,7 @@ public class PriorityBasedScheduling {
     @Setter
     private BlockingQueue<KeyValueObject> blockingQueuePriorityS;
     private boolean waitingThreads = false;
-
-    private final Object secondLock = new Object();
-    private boolean isReachedLimit = false;
+    private long arrivedTime;
 
     public PriorityBasedScheduling(SchedulingAlgorithms schedulingAlgorithm, LoadBalancingAlgorithm loadBalancingAlgorithm){
         this.schedulingAlgorithms = schedulingAlgorithm;
@@ -43,60 +41,24 @@ public class PriorityBasedScheduling {
         }
 
         executorService.submit(() -> {
-            int sumOfInnerQueues = 0;
             while (!Thread.currentThread().isInterrupted()) {
                 KeyValueObject keyValueObject = null;
 
                 try {
-                    /*if(blockingQueuePriorityS.isEmpty()){
-                        if(waitingThreads){
-                            System.out.println("Queue is getting empty. notified");
-
-                            synchronized (lock) {
-                                lock.notify();
-                            }
-                        }
-
-                    }*/
                     keyValueObject = blockingQueuePriorityS.take();
-
-                    sumOfInnerQueues = queuePriorityX.values().stream()
-                            .mapToInt(Queue::size)
-                            .sum();
-
-                    if(completeFetchOrLB.equals("load-balancing")){
-                        if (waitingThreads && sumOfInnerQueues + 1 >= 50) {
-                            synchronized (lock) {
-                                lock.notify();
-                            }
-                        }
-                    }
-                    else {
-                        if (waitingThreads) {
-                            synchronized (lock) {
-                                lock.notify();
-                            }
-                        }
-                    }
 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
 
                 if(queuePriorityX.get(keyValueObject.getPriority()) != null){
+                    arrivedTime = System.currentTimeMillis();
                     queuePriorityX.get(keyValueObject.getPriority()).add(
-                            new ArrivedTimeObject(System.currentTimeMillis(), keyValueObject)
+                            new ArrivedTimeObject(arrivedTime, keyValueObject)
                     );
                 }
                 else{
                     throw new RuntimeException("queuePriorityX.get(keyValueObject.getPriority()) == null");
-                }
-
-                if(sumOfInnerQueues + 1 >= 50){
-                    isReachedLimit = true;
-                    synchronized (secondLock){
-                        secondLock.notify();
-                    }
                 }
             }
         });
@@ -105,16 +67,6 @@ public class PriorityBasedScheduling {
             List<OldObject> oldObjects = new ArrayList<>();
 
             while (!Thread.currentThread().isInterrupted()) {
-                if(completeFetchOrLB.equals("load-balancing") && !isReachedLimit){
-                    synchronized (secondLock){
-                        try {
-                            secondLock.wait();
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                }
-
                 try {
                     for (Map.Entry<Integer, Queue<ArrivedTimeObject>> entry : queuePriorityX.entrySet()) {
                         Integer priority = entry.getKey();
@@ -170,6 +122,7 @@ public class PriorityBasedScheduling {
                         if(priorityQueuesAreEmpty){
                             synchronized (lock) {
                                 try {
+                                    System.out.println("locking...");
                                     waitingThreads = true;
                                     lock.wait();
                                 } catch (InterruptedException e) {
@@ -187,17 +140,43 @@ public class PriorityBasedScheduling {
             }
         });
 
-        executorService.submit(() ->{
+        executorService.submit(()->{
+            long lastlyUnlockedFor = Long.MAX_VALUE;
+            long indicator = 0;
+            final long THREAD_SLEEP_TIME = 500;
+
             while(!Thread.currentThread().isInterrupted()){
+                long currentTime = System.currentTimeMillis();
+                long timeDifferance = currentTime - arrivedTime;
+
+                if(timeDifferance >= 500){
+                    if (waitingThreads && arrivedTime != lastlyUnlockedFor) {
+                        synchronized (lock) {
+                            System.out.println("unlocking...");
+                            lock.notify();
+                            lastlyUnlockedFor = arrivedTime;
+                            indicator = 0;
+                        }
+                    }
+                }else {
+                    indicator++;
+
+                    if(THREAD_SLEEP_TIME * indicator > 5000){
+                        System.out.println("caught you");
+                        if (waitingThreads) {
+                            synchronized (lock) {
+                                lock.notify();
+                            }
+                        }
+
+                        indicator = 0;
+                    }
+                }
+
                 try {
-                    Thread.sleep(5000);
+                    Thread.sleep(THREAD_SLEEP_TIME);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
-                }
-                if (waitingThreads && completeFetchOrLB.equals("load-balancing")) {
-                    synchronized (lock) {
-                        lock.notify();
-                    }
                 }
             }
         });

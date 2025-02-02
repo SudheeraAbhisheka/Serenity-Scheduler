@@ -12,7 +12,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class LoadBalancingAlgorithm {
@@ -33,8 +32,13 @@ public class LoadBalancingAlgorithm {
     private boolean isEmptyServerAvailable = false;
     @Getter
     private final Object lock = new Object();
+    private final Object secondLock = new Object();
     private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTask = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Queue<KeyValueObject>> currentWorkingTasks = new ConcurrentHashMap<>();
+    private long taskCameAt;
+    KeyValueObject taskForNextIteration = null;
+    private long arrivedTime;
+    private boolean runningThread = false;
 
     public LoadBalancingAlgorithm(RestTemplate restTemplate, Kafka_consumer kafka_consumer, ServerControllerEmitter serverControllerEmitter) {
         this.restTemplate = restTemplate;
@@ -63,12 +67,13 @@ public class LoadBalancingAlgorithm {
         }
     }
 
+    ArrayList<KeyValueObject> tasks;
+    int rCap;
+
     public void weightedLoadBalancing()  {
         executorService.submit(()->{
             while (!Thread.currentThread().isInterrupted()) {
-                ArrayList<KeyValueObject> tasks = new ArrayList<>();
-
-                KeyValueObject item;
+                tasks = new ArrayList<>();
 
                 if(!isEmptyServerAvailable){
                     synchronized(lock){
@@ -82,63 +87,133 @@ public class LoadBalancingAlgorithm {
                 }
                 isEmptyServerAvailable = false;
 
-                if(wlbQueue.isEmpty()){
+                if(taskForNextIteration != null){
+                    tasks.add(taskForNextIteration);
+                    arrivedTime = System.currentTimeMillis();
+                    taskForNextIteration = null;
+
+                }
+
+                Integer rCapObject = restTemplate.exchange(
+                        "http://servers:8084/api/total-servers-capacity",
+                        HttpMethod.GET,
+                        null,
+                        new ParameterizedTypeReference<Integer>() {}
+                ).getBody();
+
+                rCap = (rCapObject != null) ? rCapObject : 0;
+
+                if(tasks == null){
+                    System.out.println("caught you");
+                }
+                else{
+                    rCap -= tasks.size();
+                }
+
+                for(int i = rCap; i > 0; i--) {
+                    KeyValueObject task;
+
                     try {
-                        System.out.println("queue is empty");
-                        item = wlbQueue.take();
-                        tasks.add(item);
+                        if(runningThread){
+                            synchronized (secondLock){
+                                System.out.println("locking..");
+                                secondLock.wait();
+                                System.out.println("unlocking....");
+                            }
+                        }
+
+                        task = wlbQueue.take();
 
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
+
+                    arrivedTime = System.currentTimeMillis();
+
+                    if(tasks == null){
+                        taskForNextIteration = task;
+                        break;
+                    }else{
+                        tasks.add(task);
+                    }
                 }
 
-                while ((item = wlbQueue.poll()) != null) {
-                    tasks.add(item);
+                if(tasks != null){
+                    weightLoadBalancing(tasks, servers);
+                    System.out.println("tasks size 1(after): " + tasks.size());
                 }
 
-                System.out.println("tasks size (after): " + tasks.size());
+            }
+        });
+        executorService.submit(()->{
+            long lastlyUnlockedFor = Long.MAX_VALUE;
+            long indicator = 0;
 
-                /*LinkedHashMap<String, Double> currentServerLoads = restTemplate.exchange(
-                        "http://servers:8084/api/get-server-loads",
-                        HttpMethod.GET,
-                        null,
-                        new ParameterizedTypeReference<LinkedHashMap<String, Double>>() {}
-                ).getBody();
+            while(!Thread.currentThread().isInterrupted()){
+                long currentTime = System.currentTimeMillis();
+                long timeDifferance = currentTime - arrivedTime;
+                final long THREAD_SLEEP_TIME = 500;
 
-                for(Map.Entry<String, BlockingQueue<KeyValueObject>> entry : queuesForServers.entrySet()) {
-                    String serverId = entry.getKey();
-                    double currentTime = getCurrentLoad(entry.getValue(), servers.get(entry.getKey()));
+                if(timeDifferance >= 500){
+                    if (tasks != null && !tasks.isEmpty() && arrivedTime != lastlyUnlockedFor) {
+                        runningThread = true;
+                        weightLoadBalancing(tasks, servers);
+                        System.out.println("tasks size 2(after): " + tasks.size());
+                        tasks = null;
+                        runningThread = false;
+                        synchronized (secondLock){
+                            secondLock.notify();
+                        }
+                        lastlyUnlockedFor = arrivedTime;
+                        indicator = 0;
+                    }
+                }
+                else {
+                    indicator++;
 
-                    currentServerLoads.put(serverId, currentServerLoads.getOrDefault(serverId, 0.0) + currentTime);
+                    if(THREAD_SLEEP_TIME * indicator > 5000){
+                        if (tasks != null && !tasks.isEmpty()) {
+                            runningThread = true;
+                            weightLoadBalancing(tasks, servers);
+                            System.out.println("tasks size 3(after): " + tasks.size());
+                            tasks = null;
+                            runningThread = false;
+                            synchronized (secondLock){
+                                secondLock.notify();
+                            }
+                            lastlyUnlockedFor = arrivedTime;
+                        }
+
+                        indicator = 0;
+                    }
                 }
 
-                System.out.println(currentServerLoads);*/
-
-                assert servers != null;
-                weightLoadBalancing(tasks, servers);
-
+                try {
+                    Thread.sleep(THREAD_SLEEP_TIME);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
         });
     }
 
-    private double getCurrentLoad(Queue<KeyValueObject> keyValueObjects, double serverSpeed){
-        double remainingTime = 0.0;
-
-        for(KeyValueObject keyValueObject : keyValueObjects) {
-            remainingTime += keyValueObject.getWeight() * serverSpeed;
-        }
-
-        return remainingTime;
-    }
-
     private void weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) {
         Map<String, Double> serverLoads = new HashMap<>();
+        double currentServerLoad = 0.0;
+
+        LinkedHashMap<String, Double> currentServerLoads = restTemplate.exchange(
+                "http://servers:8084/api/get-server-loads",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<LinkedHashMap<String, Double>>() {}
+        ).getBody();
+
         for (String serverId : servers.keySet()) {
-            serverLoads.put(
-                    serverId,
-                    0.0
-            );
+            if(currentServerLoads != null){
+                currentServerLoad = currentServerLoads.getOrDefault(serverId, 0.0);
+            }
+
+            serverLoads.put(serverId, currentServerLoad);
         }
 
         for (KeyValueObject task : tasks) {
