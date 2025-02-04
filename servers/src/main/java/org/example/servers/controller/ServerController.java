@@ -1,11 +1,13 @@
 package org.example.servers.controller;
 
-import com.example.KeyValueObject;
+import com.example.TaskObject;
 import com.example.ServerObject;
 import com.example.SpeedAndCapObj;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.servers.ServersApplication;
+import org.example.servers.entity.TaskEntity;
+import org.example.servers.repository.TaskRepository;
 import org.example.servers.service.ServerSimulator;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -23,11 +25,13 @@ public class ServerController {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private int nameOfServer = 1;
+    private final TaskRepository taskRepository;
 
 
-    public ServerController(RestTemplate restTemplate, ServerSimulator serverSimulator) {
+    public ServerController(RestTemplate restTemplate, ServerSimulator serverSimulator, TaskRepository taskRepository) {
         this.restTemplate = restTemplate;
         this.serverSimulator = serverSimulator;
+        this.taskRepository = taskRepository;
     }
 
     @PostMapping("/set-heart-beat-intervals")
@@ -85,72 +89,19 @@ public class ServerController {
     }
 
     @PostMapping("/assigning-to-servers")
-    public ResponseEntity<String> handleServer1(@RequestParam String serverId, @RequestBody KeyValueObject keyValueObject) throws InterruptedException {
+    public ResponseEntity<String> handleServer1(@RequestParam String serverId, @RequestBody TaskObject task) throws InterruptedException {
         ServerObject server = serverSimulator.getServers().get(serverId);
 
         if (server == null) {
-            System.out.printf("Null server %s,:%s\n", serverId, keyValueObject.getKey());
+            System.out.printf("Null server %s,:%s\n", serverId, task.getKey());
         }
         else{
-            server.getQueueServer().put(keyValueObject);
+            server.getQueueServer().put(task);
         }
 
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
-
-    @PostMapping("/wlb-algorithm")
-    public ResponseEntity<String> weightLoadBalancing(@RequestBody Map<String, String> taskServersMap) throws JsonProcessingException {
-        for (Map.Entry<String, String> entry : taskServersMap.entrySet()) {
-            KeyValueObject keyValueObject = objectMapper.readValue(entry.getKey(), KeyValueObject.class);
-            String serverId = entry.getValue();
-            serverSimulator.getServers().get(serverId).getQueueServer().add(keyValueObject);
-        }
-
-        return new ResponseEntity<>(HttpStatus.OK);
-    }
-
-    @GetMapping("/total-servers-capacity")
-    public int getTotalServersCap() {
-        int totalRemainingCapacity = 0;
-
-        if(serverSimulator.getServers() != null) {
-            for(ServerObject server : serverSimulator.getServers().values()) {
-                int remainingCapacity = server.getQueueServer().remainingCapacity();
-
-                totalRemainingCapacity += remainingCapacity;
-
-            }
-        }
-
-        return totalRemainingCapacity;
-    }
-
-    @GetMapping("/server-details")
-    public LinkedHashMap<String, Map<String, Double>> getServerDetails() {
-        LinkedHashMap<String, Map<String, Double>> serverDetails = new LinkedHashMap<>();
-
-        if(serverSimulator.getServers() != null) {
-            for(ServerObject server : serverSimulator.getServers().values()) {
-                double capacity = server.getQueueServer().remainingCapacity() +
-                        server.getQueueServer().size();
-
-                serverDetails.put(
-                        server.getServerId(),
-                        new HashMap<>(Map.of(
-                                "speed", server.getServerSpeed(),
-                                "capacity", capacity,
-                                "load", (double)server.getQueueServer().size()
-                        ))
-                        );
-            }
-        }
-
-        System.out.println(serverDetails);
-
-        return serverDetails;
-    }
-
 
     @GetMapping("/get-servers")
     public LinkedHashMap<String, Double> getServers() {
@@ -165,20 +116,21 @@ public class ServerController {
         return serversSpeeds;
     }
 
-    @GetMapping("/get-remaining-caps")
-    public LinkedHashMap<String, Integer> getRemainingCaps() {
-        LinkedHashMap<String, Integer> remainingCapacities = new LinkedHashMap<>();
+    @GetMapping("/total-servers-capacity")
+    public int getTotalServersCap() {
+        int totalRemainingCapacity = 0;
+        ConcurrentHashMap<String, ServerObject> servers = serverSimulator.getServers();
 
-        if(serverSimulator.getServers() != null) {
-            for(ServerObject serverObject : serverSimulator.getServers().values()) {
-                remainingCapacities.put(
-                        serverObject.getServerId(),
-                        serverObject.getQueueServer().remainingCapacity()
-                );
+        if(servers != null) {
+            for(ServerObject server : servers.values()) {
+                int remainingCapacity = server.getQueueServer().remainingCapacity();
+
+                totalRemainingCapacity += remainingCapacity;
+
             }
         }
 
-        return remainingCapacities;
+        return totalRemainingCapacity;
     }
 
     @GetMapping("/get-server-loads")
@@ -193,11 +145,11 @@ public class ServerController {
 
         for(ServerObject server : servers.values()) {
             String serverId = server.getServerId();
-            Queue<KeyValueObject> queueOfServer = server.getQueueServer();
+            Queue<TaskObject> queueOfServer = server.getQueueServer();
             double serverSpeed = server.getServerSpeed();
             remainingTime = 0.0;
 
-            for(KeyValueObject task : queueOfServer) {
+            for(TaskObject task : queueOfServer) {
                 remainingTime += task.getWeight() / serverSpeed;
             }
 
@@ -206,6 +158,19 @@ public class ServerController {
         }
 
         return serverLoads;
+    }
+
+    @GetMapping("/get-tasks")
+    public List<TaskEntity> getAllTasks() {
+        List<TaskEntity> tasks = taskRepository.findAll();
+        tasks.sort(Comparator.comparing(TaskEntity::getEndOfProcessAt));
+        return tasks;
+    }
+
+    @DeleteMapping("/delete-tasks")
+    public ResponseEntity<Void> deleteAllTasks() {
+        taskRepository.deleteAll();
+        return ResponseEntity.ok().build();
     }
 
     public void notifyNewServers() {
@@ -228,16 +193,12 @@ public class ServerController {
         }
     }
 
-    @PostMapping("/generate-report")
+    @PostMapping("/set-no-of-tasks")
     public void generateReport(@RequestBody int newCount) {
-//        serverSimulator.getAtomicCount().set(
-//                serverSimulator.getAtomicCount().get() + newCount
-//        );
-
-        serverSimulator.setAtomicCount_(newCount);
+        serverSimulator.setAtomicCount(newCount);
     }
 
-    @PostMapping("/crash-server")
+    @PostMapping("/crash-a-server")
     public boolean crashAServer(@RequestBody Integer serverId) {
         Future<?> future = serverSimulator.getServerTaskMap().get(serverId.toString());
         boolean successful = false;
@@ -256,10 +217,5 @@ public class ServerController {
         }
 
         return successful;
-    }
-
-    @PostMapping("/restart")
-    public void restartApplication() {
-        ServersApplication.restart();
     }
 }

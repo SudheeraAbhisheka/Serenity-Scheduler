@@ -32,6 +32,8 @@ public class GeneratingMessagesUI {
         TextArea outputArea = new TextArea();
         outputArea.setEditable(false);
         outputArea.setWrapText(true);
+        outputArea.setPrefHeight(400);
+
 
         ComboBox<String> messageBrokerComboBox = new ComboBox<>(FXCollections.observableArrayList("kafka", "rabbitmq"));
         messageBrokerComboBox.setValue("kafka");
@@ -108,30 +110,35 @@ public class GeneratingMessagesUI {
         HBox row1 = new HBox(10);
         row1.setPadding(new Insets(10));
         row1.getChildren().addAll(
-                new Label("Message Broker:"),
-                messageBrokerComboBox,
-                new Label("Threads:"),
-                noOfThreadsField,
-                new Label("Tasks:"),
-                noOfTasksField
+                new Label("Min weight:"),
+                minWeightField,
+                new Label("Max weight:"),
+                maxWeightField,
+                new Label("Min priority:"),
+                minPriorityField,
+                new Label("Max priority:"),
+                maxPriorityField
         );
 
         HBox row2 = new HBox(10);
         row2.setPadding(new Insets(10));
         row2.getChildren().addAll(
-                new Label("Min W:"),
-                minWeightField,
-                new Label("Max W:"),
-                maxWeightField,
-                new Label("Min P:"),
-                minPriorityField,
-                new Label("Max P:"),
-                maxPriorityField,
+                new Label("Threads:"),
+                noOfThreadsField,
+                new Label("Tasks:"),
+                noOfTasksField,
+                new Label("Message Broker:"),
+                messageBrokerComboBox
+        );
+
+        HBox row3 = new HBox(10);
+        row3.setPadding(new Insets(10));
+        row3.getChildren().addAll(
                 startButton,
                 clearButton
         );
 
-        root.getChildren().addAll(row1, row2, outputArea);
+        root.getChildren().addAll(row1, row2, row3, outputArea);
     }
 
 

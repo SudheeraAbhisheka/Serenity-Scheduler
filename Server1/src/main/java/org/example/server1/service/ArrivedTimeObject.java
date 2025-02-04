@@ -1,6 +1,6 @@
 package org.example.server1.service;
 
-import com.example.KeyValueObject;
+import com.example.TaskObject;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,10 +8,10 @@ import lombok.Setter;
 @Setter
 public class ArrivedTimeObject {
     long arrivedTime;
-    KeyValueObject keyValueObject;
+    TaskObject taskObject;
 
-    public ArrivedTimeObject(long arrivedTime, KeyValueObject keyValueObject) {
+    public ArrivedTimeObject(long arrivedTime, TaskObject taskObject) {
         this.arrivedTime = arrivedTime;
-        this.keyValueObject = keyValueObject;
+        this.taskObject = taskObject;
     }
 }

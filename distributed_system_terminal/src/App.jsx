@@ -6,34 +6,27 @@ import 'react-toastify/dist/ReactToastify.css';
 import useWebSocket from './hooks/useWebSocket';
 
 function App() {
+    // ------------------
+    // SSE / WebSocket states
+    // ------------------
     const [messages, setMessages] = useState([]);
     const [serverId, setServerId] = useState('');
-    const eventSourceRef = useRef(null);
     const messagesContainerRef = useRef(null);
 
     const [messages8083, setMessages8083] = useState([]);
     const messages8083ContainerRef = useRef(null);
 
-    // ----- SSE for 8084 -----
-    useEffect(() => {
-        const sseUrl = 'http://localhost:8084/api/servers/subscribe';
-        const es = new EventSource(sseUrl);
+    // For server load/capacity
+    const messages8084 = useWebSocket('/topic/servers');
+    const initMessages = useWebSocket('/topic/serverInit');
+    const detailMessages = useWebSocket('/topic/serverDetails');
+    const [serverData, setServerData] = useState({});
 
-        es.addEventListener('update', (event) => {
-            setMessages((prev) => [...prev, event.data]);
-        });
-
-        es.onerror = (err) => {
-            console.error('EventSource (8084) failed:', err);
-        };
-
-        eventSourceRef.current = es;
-        return () => {
-            if (eventSourceRef.current) {
-                eventSourceRef.current.close();
-            }
-        };
-    }, []);
+    // For task completion
+    const [totalTasks, setTotalTasks] = useState(0);
+    const [taskCompletion, setTaskCompletion] = useState({});
+    const totalTasksMessages = useWebSocket('/topic/taskCompletionTotalTasks');
+    const completionMessages = useWebSocket('/topic/taskCompletion');
 
     useEffect(() => {
         if (messagesContainerRef.current) {
@@ -41,7 +34,7 @@ function App() {
         }
     }, [messages]);
 
-    // ----- SSE for 8083 -----
+    // SSE for 8083
     useEffect(() => {
         const sseUrl8083 = 'http://localhost:8083/consumer-one/emitter/subscribe';
         const es8083 = new EventSource(sseUrl8083);
@@ -60,6 +53,12 @@ function App() {
     }, []);
 
     useEffect(() => {
+        if (messages8084.length > 0) {
+            setMessages(messages8084);
+        }
+    }, [messages8084]);
+
+    useEffect(() => {
         if (messages8083ContainerRef.current) {
             messages8083ContainerRef.current.scrollTop = messages8083ContainerRef.current.scrollHeight;
         }
@@ -72,7 +71,7 @@ function App() {
 
     const crashAServer = async () => {
         try {
-            const response = await fetch('http://localhost:8084/api/crash-server', {
+            const response = await fetch('http://localhost:8084/api/crash-a-server', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -98,19 +97,9 @@ function App() {
         }
     };
 
-    // ----- Existing WebSocket data for server init/details -----
-    // initMessages might be something like:
-    //   [
-    //      { server1: { speed: 10, capacity: 100 }, server2: { speed: 12, capacity: 120 } },
-    //      ...
-    //   ]
-    const initMessages = useWebSocket('/topic/serverInit');
-    // detailMessages is now a map of serverId -> load, for all servers at once
-    const detailMessages = useWebSocket('/topic/serverDetails');
-
-    const [serverData, setServerData] = useState({});
-
-    // Handle the init message (speed, capacity, etc.)
+    // ------------------
+    // Process initMessages -> serverData
+    // ------------------
     useEffect(() => {
         if (initMessages.length > 0) {
             const latestInit = initMessages[initMessages.length - 1];
@@ -129,7 +118,9 @@ function App() {
         }
     }, [initMessages]);
 
-    // Handle the new map of loads from detailMessages
+    // ------------------
+    // Process detailMessages -> serverData
+    // ------------------
     useEffect(() => {
         if (detailMessages.length > 0) {
             // The last message is a map, e.g.: { server1: 30.0, server2: 45.5, ... }
@@ -148,7 +139,9 @@ function App() {
         }
     }, [detailMessages]);
 
-    // Extract data for the ECharts bar chart
+    // ------------------
+    // Chart data
+    // ------------------
     const serverIds = Object.keys(serverData);
     const speeds = serverIds.map((id) => serverData[id].speed ?? 0);
     const capacities = serverIds.map((id) => serverData[id].capacity ?? 0);
@@ -214,14 +207,9 @@ function App() {
         series: [capacitySeries, loadSeries],
     };
 
-    // ----- NEW: Handle task completion info -----
-    const [totalTasks, setTotalTasks] = useState(0);
-    const [taskCompletion, setTaskCompletion] = useState({});
-
-    const totalTasksMessages = useWebSocket('/topic/taskCompletionTotalTasks');
-    const completionMessages = useWebSocket('/topic/taskCompletion');
-
-    // If the "totalTasks" is just a single integer message
+    // ------------------
+    // Task Completion data
+    // ------------------
     useEffect(() => {
         if (totalTasksMessages.length > 0) {
             // last element in the array is the latest message
@@ -230,7 +218,6 @@ function App() {
         }
     }, [totalTasksMessages]);
 
-    // If "taskCompletion" is a map of { serverId: completedTasks, ... }
     useEffect(() => {
         if (completionMessages.length > 0) {
             const latestCompletion = completionMessages[completionMessages.length - 1];
@@ -238,8 +225,44 @@ function App() {
         }
     }, [completionMessages]);
 
-    // Sum of completed tasks across all servers
     const totalCompletedTasks = Object.values(taskCompletion).reduce((sum, val) => sum + val, 0);
+
+    // ------------------
+    // (NEW) Database Tasks Table
+    // ------------------
+    const [tasks, setTasks] = useState([]);
+    const [isTableExpanded, setIsTableExpanded] = useState(false);
+
+    const fetchTasks = () => {
+        fetch('http://localhost:8084/api/get-tasks')
+            .then((response) => response.json())
+            .then((data) => {
+                setTasks(data);
+            })
+            .catch((error) => {
+                console.error('Error fetching tasks:', error);
+            });
+    };
+
+    const clearAllTasks = () => {
+        fetch('http://localhost:8084/api/delete-tasks', { method: 'DELETE' })
+            .then(() => {
+                // After successful delete, clear the tasks in state
+                setTasks([]);
+            })
+            .catch((error) => {
+                console.error('Error deleting tasks:', error);
+            });
+    };
+
+    // Toggle the table; on expand, refresh tasks
+    const toggleTable = () => {
+        setIsTableExpanded((prev) => !prev);
+        // If we are about to expand, fetch fresh tasks
+        if (!isTableExpanded) {
+            fetchTasks();
+        }
+    };
 
     return (
         <div
@@ -353,7 +376,7 @@ function App() {
                     <h3>Message from servers</h3>
                     <ul>
                         {messages.map((msg, index) => (
-                            <li key={index}>{msg}</li>
+                            <li key={index}>{msg.text}</li>
                         ))}
                     </ul>
                 </div>
@@ -376,6 +399,105 @@ function App() {
                         ))}
                     </ul>
                 </div>
+            </div>
+
+            {/* --------------- NEW: Collapsible Database Table --------------- */}
+            <div
+                style={{
+                    marginTop: '20px',
+                    border: '1px solid #aaa',
+                    padding: '10px'
+                }}
+            >
+                {/* Toggle arrow */}
+                <div
+                    onClick={toggleTable}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        userSelect: 'none'
+                    }}
+                >
+                    {/* Simple arrow indicator */}
+                    <span style={{ marginRight: '8px', fontWeight: 'bold' }}>
+                        {isTableExpanded ? '▼' : '►'}
+                    </span>
+                    <h3 style={{ margin: 0 }}>Tasks Table</h3>
+                </div>
+
+                {/* Conditionally render table only if expanded */}
+                {isTableExpanded && (
+                    <div style={{ marginTop: '10px' }}>
+                        <button
+                            onClick={clearAllTasks}
+                            style={{
+                                padding: '5px 10px',
+                                backgroundColor: '#DC3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                marginRight: '10px'
+                            }}
+                        >
+                            Clear All Tasks
+                        </button>
+                        <button
+                            onClick={fetchTasks}
+                            style={{
+                                padding: '5px 10px',
+                                backgroundColor: '#007BFF',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Refresh
+                        </button>
+
+                        <table
+                            style={{
+                                borderCollapse: 'collapse',
+                                width: '100%',
+                                border: '1px solid black',
+                                marginTop: '20px'
+                            }}
+                        >
+                            <thead>
+                            <tr style={{ borderBottom: '2px solid black' }}>
+                                <th style={{ border: '1px solid black', padding: '8px' }}>Key</th>
+                                <th style={{ border: '1px solid black', padding: '8px' }}>Value</th>
+                                <th style={{ border: '1px solid black', padding: '8px' }}>Weight</th>
+                                <th style={{ border: '1px solid black', padding: '8px' }}>Generated At</th>
+                                <th style={{ border: '1px solid black', padding: '8px' }}>Executed</th>
+                                <th style={{ border: '1px solid black', padding: '8px' }}>Priority</th>
+                                <th style={{ border: '1px solid black', padding: '8px' }}>Start of Process</th>
+                                <th style={{ border: '1px solid black', padding: '8px' }}>End of Process</th>
+                                <th style={{ border: '1px solid black', padding: '8px' }}>Server Key</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {tasks.map((task) => (
+                                <tr key={task.key}>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.key}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.value}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.weight}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.generatedAt}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>
+                                        {task.executed ? 'Yes' : 'No'}
+                                    </td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.priority}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.startOfProcessAt}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.endOfProcessAt}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.serverKey}</td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
 
             <ToastContainer />

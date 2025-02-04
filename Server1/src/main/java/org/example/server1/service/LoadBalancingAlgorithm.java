@@ -1,6 +1,6 @@
 package org.example.server1.service;
 
-import com.example.KeyValueObject;
+import com.example.TaskObject;
 import lombok.Getter;
 import lombok.Setter;
 import org.example.server1.component.Kafka_consumer;
@@ -19,9 +19,9 @@ public class LoadBalancingAlgorithm {
     private final RestTemplate restTemplate;
     @Getter
     @Setter
-    private BlockingQueue<KeyValueObject> wlbQueue;
+    private BlockingQueue<TaskObject> wlbQueue;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
-    private final ConcurrentHashMap<String, BlockingQueue<KeyValueObject>> queuesForServers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, BlockingQueue<TaskObject>> queuesForServers = new ConcurrentHashMap<>();
     private final ServerControllerEmitter serverControllerEmitter;
     @Getter
     private final ConcurrentMap<String, Future<?>> serverTaskMap = new ConcurrentHashMap<>();
@@ -33,12 +33,14 @@ public class LoadBalancingAlgorithm {
     @Getter
     private final Object lock = new Object();
     private final Object secondLock = new Object();
-    private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTask = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Queue<KeyValueObject>> currentWorkingTasks = new ConcurrentHashMap<>();
-    private long taskCameAt;
-    KeyValueObject taskForNextIteration = null;
+    private final ConcurrentHashMap<String, TaskObject> currentWorkingTask = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Queue<TaskObject>> currentWorkingTasks = new ConcurrentHashMap<>();
+    TaskObject taskForNextIteration = null;
     private long arrivedTime;
     private boolean runningThread = false;
+    volatile long waitingTime1 = 500;
+    @Setter
+    volatile long waitingTime2 = 5000;
 
     public LoadBalancingAlgorithm(RestTemplate restTemplate, Kafka_consumer kafka_consumer, ServerControllerEmitter serverControllerEmitter) {
         this.restTemplate = restTemplate;
@@ -67,7 +69,7 @@ public class LoadBalancingAlgorithm {
         }
     }
 
-    ArrayList<KeyValueObject> tasks;
+    ArrayList<TaskObject> tasks;
     int rCap;
 
     public void weightedLoadBalancing()  {
@@ -111,7 +113,7 @@ public class LoadBalancingAlgorithm {
                 }
 
                 for(int i = rCap; i > 0; i--) {
-                    KeyValueObject task;
+                    TaskObject task;
 
                     try {
                         if(runningThread){
@@ -152,9 +154,8 @@ public class LoadBalancingAlgorithm {
             while(!Thread.currentThread().isInterrupted()){
                 long currentTime = System.currentTimeMillis();
                 long timeDifferance = currentTime - arrivedTime;
-                final long THREAD_SLEEP_TIME = 500;
 
-                if(timeDifferance >= 500){
+                if(timeDifferance >= waitingTime1){
                     if (tasks != null && !tasks.isEmpty() && arrivedTime != lastlyUnlockedFor) {
                         runningThread = true;
                         weightLoadBalancing(tasks, servers);
@@ -171,7 +172,7 @@ public class LoadBalancingAlgorithm {
                 else {
                     indicator++;
 
-                    if(THREAD_SLEEP_TIME * indicator > 5000){
+                    if(waitingTime1 * indicator > waitingTime2){
                         if (tasks != null && !tasks.isEmpty()) {
                             runningThread = true;
                             weightLoadBalancing(tasks, servers);
@@ -189,7 +190,7 @@ public class LoadBalancingAlgorithm {
                 }
 
                 try {
-                    Thread.sleep(THREAD_SLEEP_TIME);
+                    Thread.sleep(waitingTime1);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -197,7 +198,7 @@ public class LoadBalancingAlgorithm {
         });
     }
 
-    private void weightLoadBalancing(List<KeyValueObject> tasks, LinkedHashMap<String, Double> servers) {
+    private void weightLoadBalancing(List<TaskObject> tasks, LinkedHashMap<String, Double> servers) {
         Map<String, Double> serverLoads = new HashMap<>();
         double currentServerLoad = 0.0;
 
@@ -216,7 +217,7 @@ public class LoadBalancingAlgorithm {
             serverLoads.put(serverId, currentServerLoad);
         }
 
-        for (KeyValueObject task : tasks) {
+        for (TaskObject task : tasks) {
             double taskWeight = task.getWeight();
             String bestServer = null;
             double bestCompletionTime = Double.MAX_VALUE;
@@ -242,34 +243,34 @@ public class LoadBalancingAlgorithm {
         }
     }
 
-    private void sendToServers(String serverId, BlockingQueue<KeyValueObject> wlb_serverQueue) {
+    private void sendToServers(String serverId, BlockingQueue<TaskObject> wlb_serverQueue) {
         while (!Thread.currentThread().isInterrupted()) {
-            KeyValueObject keyValueObject;
+            TaskObject taskObject;
 
             try {
-                keyValueObject = wlb_serverQueue.take();
+                taskObject = wlb_serverQueue.take();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            currentWorkingTask.put(serverId, keyValueObject);
+            currentWorkingTask.put(serverId, taskObject);
             if(currentWorkingTasks.containsKey(serverId)){
-                currentWorkingTasks.get(serverId).add(keyValueObject);
+                currentWorkingTasks.get(serverId).add(taskObject);
             }
             else{
                 currentWorkingTasks.put(serverId, new LinkedList<>());
-                currentWorkingTasks.get(serverId).add(keyValueObject);
+                currentWorkingTasks.get(serverId).add(taskObject);
             }
 
             String url = "http://servers:8084/api/assigning-to-servers?serverId=" + serverId;
-            restTemplate.postForEntity(url, keyValueObject, String.class);
+            restTemplate.postForEntity(url, taskObject, String.class);
 
             currentWorkingTask.remove(serverId);
-            currentWorkingTasks.get(serverId).remove(keyValueObject);
+            currentWorkingTasks.get(serverId).remove(taskObject);
 
         }
     }
 
-    public void terminateServer(String serverId, List<KeyValueObject> crashedTasks, String algorithmName) throws InterruptedException {
+    public void terminateServer(String serverId, List<TaskObject> crashedTasks, String algorithmName) throws InterruptedException {
         String message = "Crashed server: " + serverId + "\n";
 
         servers = restTemplate.exchange(
@@ -294,7 +295,7 @@ public class LoadBalancingAlgorithm {
 
         if(queuesForServers.containsKey(serverId)){
             System.out.println("queues for server: "+ queuesForServers.get(serverId).size());
-            BlockingQueue<KeyValueObject> queue = queuesForServers.get(serverId);
+            BlockingQueue<TaskObject> queue = queuesForServers.get(serverId);
             crashedTasks.addAll(queue);
         }
 
@@ -317,14 +318,14 @@ public class LoadBalancingAlgorithm {
 
         switch(algorithmName){
             case "age-based-priority-scheduling": {
-                for(KeyValueObject task : crashedTasks) {
+                for(TaskObject task : crashedTasks) {
                     kafka_consumer.getBlockingQueuePriorityS().add(task);
                 }
                 break;
             }
 
             case "weight-load-balancing" :
-                for(KeyValueObject task : crashedTasks) {
+                for(TaskObject task : crashedTasks) {
                     kafka_consumer.getWlbQueue().add(task);
                 }
                 break;

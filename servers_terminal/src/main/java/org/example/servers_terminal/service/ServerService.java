@@ -1,6 +1,5 @@
 package org.example.servers_terminal.service;
 
-import com.example.KeyValueObject;
 import com.example.SpeedAndCapObj;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;

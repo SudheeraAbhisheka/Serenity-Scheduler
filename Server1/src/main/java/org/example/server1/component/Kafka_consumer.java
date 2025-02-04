@@ -1,6 +1,6 @@
 package org.example.server1.component;
 
-import com.example.KeyValueObject;
+import com.example.TaskObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
@@ -20,12 +20,11 @@ import java.util.concurrent.LinkedBlockingQueue;
 @Service
 public class Kafka_consumer {
     @Getter
-    private final BlockingQueue<KeyValueObject> blockingQueueCompleteF = new LinkedBlockingQueue<>(1);
+    private final BlockingQueue<TaskObject> blockingQueueCompleteF = new LinkedBlockingQueue<>(1);
     @Getter
-    private final BlockingQueue<KeyValueObject> blockingQueuePriorityS = new LinkedBlockingQueue<>();
+    private final BlockingQueue<TaskObject> blockingQueuePriorityS = new LinkedBlockingQueue<>();
     @Getter
-    private final BlockingQueue<KeyValueObject> wlbQueue = new LinkedBlockingQueue<>();
-    private final ArrayList<KeyValueObject> arrayList = new ArrayList<>();
+    private final BlockingQueue<TaskObject> wlbQueue = new LinkedBlockingQueue<>();
     private String schedulingAlgorithm = "";
     @Setter
     private boolean crashedTasks = true;
@@ -35,15 +34,15 @@ public class Kafka_consumer {
 
     @KafkaListener(topics = "topic_1-10", groupId = "my-group")
     public void listen_1to10(String message) throws InterruptedException, JsonProcessingException {
-        selectingAlgorithm(objectMapper.readValue(message, KeyValueObject.class));
+        selectingAlgorithm(objectMapper.readValue(message, TaskObject.class));
     }
 
     @RabbitListener(queues = RabbitMQConfig.CONSUMER_ONE_QUEUE)
     public void receiveMessageFromConsumerOneQueue(String message) throws InterruptedException, JsonProcessingException {
-        selectingAlgorithm(objectMapper.readValue(message, KeyValueObject.class));
+        selectingAlgorithm(objectMapper.readValue(message, TaskObject.class));
     }
 
-    private void selectingAlgorithm(KeyValueObject task) throws InterruptedException {
+    private void selectingAlgorithm(TaskObject task) throws InterruptedException {
         if(crashedTasks){
             synchronized(lock){
                 System.out.println("blocking......");
@@ -69,7 +68,6 @@ public class Kafka_consumer {
                 break;
 
             default:
-//                arrayList.add(task);
                 throw new IllegalArgumentException("Unsupported algorithm: " + schedulingAlgorithm);
 
         }
@@ -82,39 +80,4 @@ public class Kafka_consumer {
         }
         this.schedulingAlgorithm = schedulingAlgorithm;
     }
-
-    /*public void setSchedulingAlgorithm(String schedulingAlgorithm) {
-        if(!arrayList.isEmpty()){
-            crashedTasks = true;
-
-            for(KeyValueObject task : arrayList){
-                switch(schedulingAlgorithm){
-                    case "complete-and-then-fetch": {
-                        try {
-                            blockingQueueCompleteF.put(task);
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
-
-                        break;
-                    }
-
-                    case "age-based-priority-scheduling": {
-                        blockingQueuePriorityS.add(task);
-                        break;
-                    }
-
-                    case "weight-load-balancing" :
-                        wlbQueue.add(task);
-                        break;
-
-                    default:
-                        throw new IllegalArgumentException("Unsupported algorithm: " + schedulingAlgorithm);
-
-                }
-            }
-        }
-
-        this.schedulingAlgorithm = schedulingAlgorithm;
-    }*/
 }

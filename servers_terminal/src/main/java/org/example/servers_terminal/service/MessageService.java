@@ -1,6 +1,6 @@
 package org.example.servers_terminal.service;
 
-import com.example.KeyValueObject;
+import com.example.TaskObject;
 import javafx.application.Platform;
 import javafx.scene.control.TextArea;
 import org.springframework.http.*;
@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class MessageService {
     private final RestTemplate restTemplate;
+    private final ExecutorService executor = Executors.newCachedThreadPool();
     private final AtomicInteger sendMessageCount = new AtomicInteger(0);
     private String url;
     private ScheduledExecutorService scheduler;
@@ -67,7 +68,7 @@ public class MessageService {
             scheduler.shutdownNow();
         }
 
-        scheduler = Executors.newScheduledThreadPool(noOfThreads + 1);
+//        scheduler = Executors.newScheduledThreadPool(noOfThreads + 1);
         Random random = new Random(12345);
         sendMessageCount.set(0);
 
@@ -84,11 +85,11 @@ public class MessageService {
         }
 
         for (int tasksPerThreadCorrect : noOfTasksList) {
-            scheduler.submit(() -> {
+            executor.submit(() -> {
                 Platform.runLater(() -> outputArea.appendText("Thread " + Thread.currentThread().getName() + " started.\n"));
 
                 for (int i = 0; i < tasksPerThreadCorrect; i++) {
-                    KeyValueObject keyValueObject = new KeyValueObject(
+                    TaskObject taskObject = new TaskObject(
                             System.currentTimeMillis() + String.valueOf(Thread.currentThread().getId()),
                             1 + random.nextInt(10),
                             minWeight + random.nextInt(maxWeight - minWeight + 1),
@@ -97,8 +98,8 @@ public class MessageService {
                             System.currentTimeMillis()
                     );
 
-                    if(!sendMessage_topic_1to10(keyValueObject)){
-                        Platform.runLater(() -> outputArea.appendText("Failed to send: " + keyValueObject.getKey() + " \n"));
+                    if(!sendMessage_topic_1to10(taskObject)){
+                        Platform.runLater(() -> outputArea.appendText("Failed to send: " + taskObject.getKey() + " \n"));
                     }
                     int currentCount = sendMessageCount.incrementAndGet();
 
@@ -110,11 +111,11 @@ public class MessageService {
         }
     }
 
-    private boolean sendMessage_topic_1to10(KeyValueObject keyValueObject) {
+    private boolean sendMessage_topic_1to10(TaskObject taskObject) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        HttpEntity<KeyValueObject> request = new HttpEntity<>(keyValueObject, headers);
+        HttpEntity<TaskObject> request = new HttpEntity<>(taskObject, headers);
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
@@ -131,7 +132,7 @@ public class MessageService {
         HttpEntity<Integer> request = new HttpEntity<>(count, headers);
 
         try {
-            ResponseEntity<String> response = restTemplate.exchange("http://localhost:8084/api/generate-report",
+            ResponseEntity<String> response = restTemplate.exchange("http://localhost:8084/api/set-no-of-tasks",
                     HttpMethod.POST, request, String.class);
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {

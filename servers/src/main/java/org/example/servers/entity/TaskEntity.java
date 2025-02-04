@@ -7,9 +7,9 @@ import lombok.Data;
 /**
  * This is our Cassandra table equivalent of KeyValueObject.
  */
-@Table("key_value_object") // The table name in Cassandra
+@Table("tasks") // The table name in Cassandra
 @Data
-public class KeyValueObjectEntity {
+public class TaskEntity {
 
     @PrimaryKey
     private String key;

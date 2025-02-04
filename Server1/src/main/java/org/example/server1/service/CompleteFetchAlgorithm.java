@@ -1,6 +1,6 @@
 package org.example.server1.service;
 
-import com.example.KeyValueObject;
+import com.example.TaskObject;
 import lombok.Getter;
 import lombok.Setter;
 import org.example.server1.component.Kafka_consumer;
@@ -18,24 +18,24 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Service
-public class SchedulingAlgorithms {
+public class CompleteFetchAlgorithm {
     private final RestTemplate restTemplate;
     @Getter
     @Setter
-    private BlockingQueue<KeyValueObject> dynamicBlockingQueue;
+    private BlockingQueue<TaskObject> dynamicBlockingQueue;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
     @Getter
-    private final BlockingQueue<KeyValueObject> crashedTasks = new LinkedBlockingQueue<>();
+    private final BlockingQueue<TaskObject> crashedTasks = new LinkedBlockingQueue<>();
     @Getter
     private final ConcurrentMap<String, Future<?>> serverTaskMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, KeyValueObject> currentWorkingTask = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, TaskObject> currentWorkingTask = new ConcurrentHashMap<>();
     @Getter
     private final ConcurrentHashMap<String, Boolean> runningServers = new ConcurrentHashMap<>();
     private final ServerControllerEmitter serverControllerEmitter;
     private final Kafka_consumer kafka_consumer;
 
     @Autowired
-    public SchedulingAlgorithms(RestTemplate restTemplate, Kafka_consumer kafka_consumer, ServerControllerEmitter serverControllerEmitter) {
+    public CompleteFetchAlgorithm(RestTemplate restTemplate, Kafka_consumer kafka_consumer, ServerControllerEmitter serverControllerEmitter) {
         this.restTemplate = restTemplate;
         this.kafka_consumer = kafka_consumer;
         this.serverControllerEmitter = serverControllerEmitter;
@@ -64,14 +64,14 @@ public class SchedulingAlgorithms {
 
     private void completeAndThenFetchModel(String serverId) {
         while (!Thread.currentThread().isInterrupted()) {
-            KeyValueObject keyValueObject;
+            TaskObject taskObject;
 
             try {
-                keyValueObject = dynamicBlockingQueue.take();
-                currentWorkingTask.put(serverId, keyValueObject);
+                taskObject = dynamicBlockingQueue.take();
+                currentWorkingTask.put(serverId, taskObject);
 
                 String url = "http://servers:8084/api/assigning-to-servers?serverId=" + serverId;
-                restTemplate.postForEntity(url, keyValueObject, String.class);
+                restTemplate.postForEntity(url, taskObject, String.class);
                 currentWorkingTask.remove(serverId);
 
             } catch (InterruptedException e) {
@@ -80,7 +80,7 @@ public class SchedulingAlgorithms {
         }
     }
 
-    public void terminateServer(String serverId, List<KeyValueObject> crashedTasks, String algorithmName) throws InterruptedException {
+    public void terminateServer(String serverId, List<TaskObject> crashedTasks, String algorithmName) throws InterruptedException {
 
         String message = "Crashed server: " + serverId + "\n";
 
@@ -109,7 +109,7 @@ public class SchedulingAlgorithms {
 
         switch(algorithmName){
             case "complete-and-then-fetch": {
-                for(KeyValueObject task : crashedTasks) {
+                for(TaskObject task : crashedTasks) {
                     kafka_consumer.getBlockingQueueCompleteF().put(task);
                 }
 
@@ -117,7 +117,7 @@ public class SchedulingAlgorithms {
             }
 
             case "age-based-priority-scheduling": {
-                for(KeyValueObject task : crashedTasks) {
+                for(TaskObject task : crashedTasks) {
                     kafka_consumer.getBlockingQueuePriorityS().add(task);
                 }
                 break;

@@ -1,16 +1,15 @@
 package org.example.server1.service;
 
-import com.example.KeyValueObject;
+import com.example.TaskObject;
 import lombok.Getter;
-import lombok.Setter;
 
 @Getter
 public class OldObject {
     private final long age;
-    private final KeyValueObject keyValueObject;
+    private final TaskObject taskObject;
 
-    public OldObject(long age, KeyValueObject keyValueObject) {
+    public OldObject(long age, TaskObject taskObject) {
         this.age = age;
-        this.keyValueObject = keyValueObject;
+        this.taskObject = taskObject;
     }
 }

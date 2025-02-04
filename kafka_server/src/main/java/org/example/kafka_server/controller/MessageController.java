@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import com.example.KeyValueObject;
+import com.example.TaskObject;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -26,8 +26,8 @@ public class MessageController {
     }
 
     @PostMapping("/kafka-server/topic_1-10")
-    public String kafka_sendMessage1(@RequestBody KeyValueObject keyValueObject) throws InterruptedException {
-        kafkaProducerService.sendMessage("topic_1-10", keyValueObject);
+    public String kafka_sendMessage1(@RequestBody TaskObject task) throws InterruptedException {
+        kafkaProducerService.sendMessage("topic_1-10", task);
 
 //        System.out.println(Thread.currentThread().getId() + " started");
 //        Thread.sleep(500);
@@ -38,25 +38,25 @@ public class MessageController {
     }
 //
 //    @PostMapping("/send-message/topic_11-20")
-//    public String sendMessage11_21(@RequestBody KeyValueObject keyValueObject) {
-//        kafkaProducerService.sendMessage("topic_11-20", keyValueObject);
+//    public String sendMessage11_21(@RequestBody TaskObject task) {
+//        kafkaProducerService.sendMessage("topic_11-20", task);
 //        return "Message sent!";
 //    }
 
     @PostMapping("/rebbitmq-server/topic_1-10")
-    public String rabbitmq_sendMessage1(@RequestBody KeyValueObject keyValueObject) throws JsonProcessingException {
+    public String rabbitmq_sendMessage1(@RequestBody TaskObject task) throws JsonProcessingException {
         String routingKey = "consumer.one";
 
         ObjectMapper objectMapper = new ObjectMapper();
-        String message = objectMapper.writeValueAsString(keyValueObject);
+        String message = objectMapper.writeValueAsString(task);
 
         rabbitTemplate.convertAndSend(RabbitMQConfig.DIRECT_EXCHANGE, routingKey, message);
         return "Message sent!";
     }
 
 //    @PostMapping("/send-message/topic_11-20")
-//    public String sendMessage11_21(@RequestBody KeyValueObject keyValueObject) {
-//        kafkaProducerService.sendMessage("topic_11-20", keyValueObject);
+//    public String sendMessage11_21(@RequestBody TaskObject task) {
+//        kafkaProducerService.sendMessage("topic_11-20", task);
 //        return "Message sent!";
 //    }
 }

@@ -1,71 +1,83 @@
 package org.example.server1.service;
 
-import com.example.KeyValueObject;
-import lombok.Getter;
+import com.example.TaskObject;
 import lombok.Setter;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.*;
 
 @Service
 public class PriorityBasedScheduling {
-    private final SchedulingAlgorithms schedulingAlgorithms;
+    private final CompleteFetchAlgorithm completeFetchAlgorithm;
     private final LoadBalancingAlgorithm loadBalancingAlgorithm;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
     @Setter
-    private BlockingQueue<KeyValueObject> blockingQueuePriorityS;
+    private BlockingQueue<TaskObject> blockingQueuePriorityS;
     private boolean waitingThreads = false;
     private long arrivedTime;
+    volatile long waitingTime1 = 500;
+    @Setter
+    volatile long waitingTime2 = 5000;
+    private final List<OldObject> oldObjects = new ArrayList<>();
+    long maxAge = 0;
 
-    public PriorityBasedScheduling(SchedulingAlgorithms schedulingAlgorithm, LoadBalancingAlgorithm loadBalancingAlgorithm){
-        this.schedulingAlgorithms = schedulingAlgorithm;
+    public PriorityBasedScheduling(CompleteFetchAlgorithm schedulingAlgorithm, LoadBalancingAlgorithm loadBalancingAlgorithm){
+        this.completeFetchAlgorithm = schedulingAlgorithm;
         this.loadBalancingAlgorithm = loadBalancingAlgorithm;
     }
 
-    public void priorityBasedScheduling(LinkedHashMap<Integer, Double> thresholdTime, String completeFetchOrLB) {
+    public void priorityBasedScheduling(LinkedHashMap<Integer, Long> thresholdTime, String completeFetchOrLB) {
         final Object lock = new Object();
+        int UNDEFINED = 0;
 
         ConcurrentHashMap<Integer, Queue<ArrivedTimeObject>> queuePriorityX = new ConcurrentHashMap<>();
         if(completeFetchOrLB.equals("complete-fetch")){
-            schedulingAlgorithms.setDynamicBlockingQueue(new LinkedBlockingQueue<>(1));
+            completeFetchAlgorithm.setDynamicBlockingQueue(new LinkedBlockingQueue<>(1));
         }
         else if(completeFetchOrLB.equals("load-balancing")){
             loadBalancingAlgorithm.setWlbQueue(new LinkedBlockingQueue<>());
         }
 
-        for(Integer key : thresholdTime.keySet()) {
-            queuePriorityX.put(key, new ConcurrentLinkedQueue<>());
-            System.out.println("Key: " + key);
+        queuePriorityX.put(UNDEFINED, new ConcurrentLinkedQueue<>());
+        for(Map.Entry<Integer, Long> entry : thresholdTime.entrySet()) {
+            int priority = entry.getKey();
+            long age = entry.getValue();
+
+            queuePriorityX.put(priority, new ConcurrentLinkedQueue<>());
+            if(age > maxAge){
+                maxAge = age;
+            }
         }
+        thresholdTime.put(UNDEFINED, maxAge);
 
         executorService.submit(() -> {
             while (!Thread.currentThread().isInterrupted()) {
-                KeyValueObject keyValueObject = null;
+                TaskObject task = null;
+                int priority = 0;
 
                 try {
-                    keyValueObject = blockingQueuePriorityS.take();
+                    task = blockingQueuePriorityS.take();
 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
 
-                if(queuePriorityX.get(keyValueObject.getPriority()) != null){
-                    arrivedTime = System.currentTimeMillis();
-                    queuePriorityX.get(keyValueObject.getPriority()).add(
-                            new ArrivedTimeObject(arrivedTime, keyValueObject)
-                    );
+                priority = task.getPriority();
+
+                arrivedTime = System.currentTimeMillis();
+                ArrivedTimeObject arrivedTimeObject = new ArrivedTimeObject(arrivedTime, task);
+
+                if(queuePriorityX.containsKey(priority)){
+                    queuePriorityX.get(priority).add(arrivedTimeObject);
                 }
                 else{
-                    throw new RuntimeException("queuePriorityX.get(keyValueObject.getPriority()) == null");
+//                    queuePriorityX.get(UNDEFINED).add(arrivedTimeObject);
                 }
             }
         });
 
         executorService.submit(() -> {
-            List<OldObject> oldObjects = new ArrayList<>();
-
             while (!Thread.currentThread().isInterrupted()) {
                 try {
                     for (Map.Entry<Integer, Queue<ArrivedTimeObject>> entry : queuePriorityX.entrySet()) {
@@ -76,7 +88,7 @@ public class PriorityBasedScheduling {
                             long age = System.currentTimeMillis() - priorityQueue.peek().getArrivedTime();
 
                             if (age > thresholdTime.get(priority)) {
-                                oldObjects.add(new OldObject(age, priorityQueue.poll().getKeyValueObject()));
+                                oldObjects.add(new OldObject(age, priorityQueue.poll().getTaskObject()));
                             }
 
                         }
@@ -84,11 +96,11 @@ public class PriorityBasedScheduling {
 
                     if (!oldObjects.isEmpty()) {
                         oldObjects.sort(Comparator.comparingLong(OldObject::getAge).reversed());
-                        KeyValueObject k = oldObjects.remove(0).getKeyValueObject();
+                        TaskObject k = oldObjects.remove(0).getTaskObject();
                         System.out.println("old object");
 
                         if(completeFetchOrLB.equals("complete-fetch")){
-                            schedulingAlgorithms.getDynamicBlockingQueue().put(k);
+                            completeFetchAlgorithm.getDynamicBlockingQueue().put(k);
                         }
                         else if(completeFetchOrLB.equals("load-balancing")){
                             loadBalancingAlgorithm.getWlbQueue().put(k);
@@ -99,7 +111,7 @@ public class PriorityBasedScheduling {
 
                         for(Queue<ArrivedTimeObject> priorityQueue : queuePriorityX.values()){
                             if(!priorityQueue.isEmpty()){
-                                KeyValueObject task = priorityQueue.poll().getKeyValueObject();
+                                TaskObject task = priorityQueue.poll().getTaskObject();
                                 System.out.println("completed: "+task.getKey()+", priority: "+task.getPriority());
                                 for(Queue<ArrivedTimeObject> pq : queuePriorityX.values()){
                                     System.out.printf("%s, ", pq.size());
@@ -108,7 +120,7 @@ public class PriorityBasedScheduling {
 
 
                                 if(completeFetchOrLB.equals("complete-fetch")){
-                                    schedulingAlgorithms.getDynamicBlockingQueue().put(task);
+                                    completeFetchAlgorithm.getDynamicBlockingQueue().put(task);
                                 }
                                 else if(completeFetchOrLB.equals("load-balancing")){
                                     loadBalancingAlgorithm.getWlbQueue().put(task);
@@ -143,13 +155,12 @@ public class PriorityBasedScheduling {
         executorService.submit(()->{
             long lastlyUnlockedFor = Long.MAX_VALUE;
             long indicator = 0;
-            final long THREAD_SLEEP_TIME = 500;
 
             while(!Thread.currentThread().isInterrupted()){
                 long currentTime = System.currentTimeMillis();
                 long timeDifferance = currentTime - arrivedTime;
 
-                if(timeDifferance >= 500){
+                if(timeDifferance >= waitingTime1){
                     if (waitingThreads && arrivedTime != lastlyUnlockedFor) {
                         synchronized (lock) {
                             System.out.println("unlocking...");
@@ -161,7 +172,7 @@ public class PriorityBasedScheduling {
                 }else {
                     indicator++;
 
-                    if(THREAD_SLEEP_TIME * indicator > 5000){
+                    if(waitingTime1 * indicator > waitingTime2){
                         System.out.println("caught you");
                         if (waitingThreads) {
                             synchronized (lock) {
@@ -174,7 +185,7 @@ public class PriorityBasedScheduling {
                 }
 
                 try {
-                    Thread.sleep(THREAD_SLEEP_TIME);
+                    Thread.sleep(waitingTime1);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }

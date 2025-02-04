@@ -3,14 +3,14 @@ package org.example.servers.controller;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 
 @Controller
-public class ServerDetailsController {
+public class WebSocketController {
     private final SimpMessagingTemplate messagingTemplate;
 
-    public ServerDetailsController(SimpMessagingTemplate messagingTemplate) {
+    public WebSocketController(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -18,13 +18,7 @@ public class ServerDetailsController {
         messagingTemplate.convertAndSend("/topic/serverInit", serversDetails);
     }
 
-    public void sendServerDetails(String serverId, double load) {
-//        Map<String, Double> serverDetails = new LinkedHashMap<>();
-//        serverDetails.put(serverId, load);
-//        messagingTemplate.convertAndSend("/topic/serverDetails", serverDetails);
-    }
-
-    public void sendServerDetails_(Map<String, Integer> serversLoad) {
+    public void sendServerDetails(Map<String, Integer> serversLoad) {
         messagingTemplate.convertAndSend("/topic/serverDetails", serversLoad);
     }
 
@@ -34,5 +28,11 @@ public class ServerDetailsController {
 
     public void sendTaskCompletion(Map<String, Integer> taskCompletion) {
         messagingTemplate.convertAndSend("/topic/taskCompletion", taskCompletion);
+    }
+
+    public void sendResult(String result) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("text", result);
+        messagingTemplate.convertAndSend("/topic/servers", data);
     }
 }

@@ -1,24 +1,21 @@
 package org.example.server1.controller;
 
-import com.example.KeyValueObject;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.example.TaskObject;
 import org.example.server1.component.Kafka_consumer;
 import org.example.server1.service.LoadBalancingAlgorithm;
 import org.example.server1.service.PriorityBasedScheduling;
-import org.example.server1.service.SchedulingAlgorithms;
+import org.example.server1.service.CompleteFetchAlgorithm;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 
 @RestController
 @RequestMapping("/consumer-one")
 public class ConsumerOneController {
 
-    private final SchedulingAlgorithms schedulingAlgorithms;
+    private final CompleteFetchAlgorithm completeFetchAlgorithm;
     private final LoadBalancingAlgorithm loadBalancingAlgorithm;
     private final PriorityBasedScheduling priorityBasedScheduling;
     private final Kafka_consumer kafka_consumer;
@@ -26,10 +23,10 @@ public class ConsumerOneController {
     private final ServerControllerEmitter serverControllerEmitter;
 
     @Autowired
-    public ConsumerOneController(SchedulingAlgorithms schedulingAlgorithms, Kafka_consumer kafka_consumer,
+    public ConsumerOneController(CompleteFetchAlgorithm completeFetchAlgorithm, Kafka_consumer kafka_consumer,
                                  LoadBalancingAlgorithm loadBalancingAlgorithm, ServerControllerEmitter serverControllerEmitter,
                                  PriorityBasedScheduling priorityBasedScheduling) {
-        this.schedulingAlgorithms = schedulingAlgorithms;
+        this.completeFetchAlgorithm = completeFetchAlgorithm;
         this.loadBalancingAlgorithm = loadBalancingAlgorithm;
         this.priorityBasedScheduling = priorityBasedScheduling;
         this.kafka_consumer = kafka_consumer;
@@ -38,8 +35,8 @@ public class ConsumerOneController {
 
     @PostMapping("/set-complete-and-fetch")
     public void setCompleteAndFetch() {
-        schedulingAlgorithms.setDynamicBlockingQueue(kafka_consumer.getBlockingQueueCompleteF());
-        schedulingAlgorithms.executeCATF();
+        completeFetchAlgorithm.setDynamicBlockingQueue(kafka_consumer.getBlockingQueueCompleteF());
+        completeFetchAlgorithm.executeCATF();
         kafka_consumer.setSchedulingAlgorithm("complete-and-then-fetch");
         algorithmName = "complete-and-then-fetch";
         serverControllerEmitter.sendUpdate("Scheduling algorithm: complete-and-then-fetch");
@@ -56,11 +53,10 @@ public class ConsumerOneController {
     }
 
     @PostMapping("/set-priority-complete-fetch")
-    public void setPriorityCompleteFetch(@RequestBody LinkedHashMap<Integer, Double> thresholdTime) {
-        System.out.println("algorithm: priority-complete-fetch");
+    public void setPriorityCompleteFetch(@RequestBody LinkedHashMap<Integer, Long> thresholdTime) {
         priorityBasedScheduling.setBlockingQueuePriorityS(kafka_consumer.getBlockingQueuePriorityS());
         priorityBasedScheduling.priorityBasedScheduling(thresholdTime, "complete-fetch");
-        schedulingAlgorithms.executeCATF();
+        completeFetchAlgorithm.executeCATF();
 
         kafka_consumer.setSchedulingAlgorithm("age-based-priority-scheduling");
         algorithmName = "age-based-priority-scheduling";
@@ -68,8 +64,7 @@ public class ConsumerOneController {
     }
 
     @PostMapping("/set-priority-load-balancing")
-    public void setPriorityLoadBalancing(@RequestBody LinkedHashMap<Integer, Double> thresholdTime) {
-        System.out.println("algorithm: priority-load-balancing");
+    public void setPriorityLoadBalancing(@RequestBody LinkedHashMap<Integer, Long> thresholdTime) {
         priorityBasedScheduling.setBlockingQueuePriorityS(kafka_consumer.getBlockingQueuePriorityS());
         priorityBasedScheduling.priorityBasedScheduling(thresholdTime, "load-balancing");
         loadBalancingAlgorithm.wlb_serverInit();
@@ -80,18 +75,30 @@ public class ConsumerOneController {
         serverControllerEmitter.sendUpdate("Scheduling algorithm: age-based-priority-scheduling");
     }
 
+//    @PostMapping("/update-load-balancing-wait-times")
+//    public void updateLoadBalancingWaitTimes(@RequestBody LinkedHashMap<String, Long> waitTimes) {
+//        loadBalancingAlgorithm.setWaitingTime1(waitTimes.get("waitTime1"));
+//        loadBalancingAlgorithm.setWaitingTime2(waitTimes.get("waitTime2"));
+//    }
+
+    @PostMapping("/update-wait-time")
+    public void updateLoadBalancingWaitTime(@RequestBody Long waitTime) {
+        loadBalancingAlgorithm.setWaitingTime2(waitTime);
+        priorityBasedScheduling.setWaitingTime2(waitTime);
+    }
+
     @PostMapping("/notify-new-servers")
     public void addServers() {
-        if(schedulingAlgorithms.getDynamicBlockingQueue() != null){
-            schedulingAlgorithms.executeCATF();
+        if(completeFetchAlgorithm.getDynamicBlockingQueue() != null){
+            completeFetchAlgorithm.executeCATF();
         }
         if(loadBalancingAlgorithm.getWlbQueue() != null){
            loadBalancingAlgorithm.wlb_serverInit();
         }
     }
 
-    @PostMapping("/empty-server")
-    public void notifyEmptyServer(@RequestParam String serverId) {
+    @PostMapping("/set-empty-server")
+    public void setEmptyServer(@RequestParam String serverId) {
         loadBalancingAlgorithm.setEmptyServerAvailable(true);
 
         synchronized (loadBalancingAlgorithm.getLock()){
@@ -101,9 +108,9 @@ public class ConsumerOneController {
 
 
     @PostMapping("/crashed-tasks")
-    public void addCrashedTasks(@RequestParam Integer serverId, @RequestBody List<KeyValueObject> crashedTasks) throws InterruptedException {
+    public void addCrashedTasks(@RequestParam Integer serverId, @RequestBody List<TaskObject> crashedTasks) throws InterruptedException {
         if(algorithmName.equals("complete-and-then-fetch")){
-            schedulingAlgorithms.terminateServer(Integer.toString(serverId), crashedTasks, algorithmName);
+            completeFetchAlgorithm.terminateServer(Integer.toString(serverId), crashedTasks, algorithmName);
         }
         else if(algorithmName.equals("weight-load-balancing") || algorithmName.equals("age-based-priority-scheduling")){
             loadBalancingAlgorithm.terminateServer(Integer.toString(serverId), crashedTasks, algorithmName);

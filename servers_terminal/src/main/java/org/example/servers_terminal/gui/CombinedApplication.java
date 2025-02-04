@@ -41,7 +41,7 @@ public class CombinedApplication extends Application {
         generatingMessagesTab.setClosable(false);
         tabPane.getTabs().add(generatingMessagesTab);
 
-        Scene scene = new Scene(tabPane, 800, 600);
+        Scene scene = new Scene(tabPane, 1000, 600);
         primaryStage.setScene(scene);
         primaryStage.setTitle("Unified UI");
         primaryStage.show();

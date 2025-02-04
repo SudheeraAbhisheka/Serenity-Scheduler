@@ -24,6 +24,14 @@ public class AlgorithmSelectorUI {
     private Button addRowButton;
     private Button setButton;
 
+    // New UI controls for wait time input
+    private TextField waitTimeField;
+    private Button setWaitTimeButton;
+    private Button clearTerminalButton;
+
+    // TextArea for displaying messages (instead of Alerts)
+    private TextArea outputArea;
+
     public AlgorithmSelectorUI(ApplicationContext context) {
         this.context = context;
         this.server1Service = context.getBean(Server1Service.class);
@@ -40,39 +48,27 @@ public class AlgorithmSelectorUI {
         Label algorithmLabel = new Label("Select Algorithm:");
         algorithmComboBox = new ComboBox<>();
         algorithmComboBox.getItems().addAll("Complete and then fetch", "Load balancing");
-        algorithmComboBox.setValue("Complete and then fetch"); // default
+        algorithmComboBox.setValue("Complete and then fetch");
 
         HBox algorithmBox = new HBox(10, algorithmLabel, algorithmComboBox);
 
         // 2) Priority CheckBox
         priorityCheckBox = new CheckBox("Based on priority");
 
-        // 3) The Expiry Age input area (for Priority -> Expiry Age in ms)
+        // 3) The Expiry Age input area
         expiryAgeVBox = new VBox(5);
         expiryAgeVBox.setPadding(new Insets(10, 0, 0, 0));
-
-        // By default, hide both the expiryAgeVBox and the addRowButton
         expiryAgeVBox.setVisible(false);
         expiryAgeVBox.setManaged(false);
-
-        // Create two initial rows (minimum requirement)
-        expiryAgeVBox.getChildren().addAll(
-                createExpiryAgeRow(),
-                createExpiryAgeRow()
-        );
+        expiryAgeVBox.getChildren().addAll(createExpiryAgeRow(), createExpiryAgeRow());
 
         // 3.a) "Add Row" button
         addRowButton = new Button("Add Row");
-        // Hide the "Add Row" button initially
         addRowButton.setVisible(false);
         addRowButton.setManaged(false);
-
         addRowButton.setOnAction(e -> expiryAgeVBox.getChildren().add(createExpiryAgeRow()));
 
-        // Put the rows + "Add Row" button into a separate container
         VBox priorityBox = new VBox(5, expiryAgeVBox, addRowButton);
-
-        // Show/hide based on priorityCheckBox
         priorityCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
             expiryAgeVBox.setVisible(newVal);
             expiryAgeVBox.setManaged(newVal);
@@ -84,12 +80,33 @@ public class AlgorithmSelectorUI {
         setButton = new Button("Set");
         setButton.setOnAction(e -> handleSetButton());
 
+        // 5) Wait Time input and button
+        Label waitTimeLabel = new Label("Wait Time (ms):");
+        waitTimeField = new TextField();
+        waitTimeField.setPromptText("Enter wait time in ms");
+        setWaitTimeButton = new Button("Set Wait Time");
+        setWaitTimeButton.setOnAction(e -> handleSetWaitTime());
+        HBox waitTimeBox = new HBox(10, waitTimeLabel, waitTimeField, setWaitTimeButton);
+
+        // 6) TextArea for output
+        outputArea = new TextArea();
+        outputArea.setEditable(false);
+        outputArea.setWrapText(true);
+        outputArea.setPrefHeight(200);
+
+        // 7) "Clear Terminal" button
+        clearTerminalButton = new Button("Clear Terminal");
+        clearTerminalButton.setOnAction(e -> outputArea.clear());
+        HBox setButtonBox = new HBox(10, setButton, clearTerminalButton);
+
         // Add everything to the root layout
         rootLayout.getChildren().addAll(
                 algorithmBox,
                 priorityCheckBox,
                 priorityBox,
-                setButton
+                waitTimeBox,
+                setButtonBox,
+                outputArea
         );
     }
 
@@ -110,15 +127,12 @@ public class AlgorithmSelectorUI {
         return new HBox(10, priorityLabel, priorityField, expiryLabel, expiryField);
     }
 
-    /**
-     * Called when the "Set" button is clicked.
-     */
     private void handleSetButton() {
         String selectedAlgorithm = algorithmComboBox.getValue();
         boolean isPriorityBased = priorityCheckBox.isSelected();
 
         // Gather data if priority-based
-        LinkedHashMap<Integer, Double> expiryAgeMap = new LinkedHashMap<>();
+        LinkedHashMap<Integer, Long> expiryAgeMap = new LinkedHashMap<>();
         if (isPriorityBased) {
             for (int i = 0; i < expiryAgeVBox.getChildren().size(); i++) {
                 if (expiryAgeVBox.getChildren().get(i) instanceof HBox row) {
@@ -132,13 +146,12 @@ public class AlgorithmSelectorUI {
                     if (fields.size() == 2) {
                         try {
                             int priority = Integer.parseInt(fields.get(0).getText().trim());
-                            double expiryMs = Double.parseDouble(fields.get(1).getText().trim());
+                            long expiryMs = Long.parseLong(fields.get(1).getText().trim());
                             // Insert into map
                             expiryAgeMap.put(priority, expiryMs);
                         } catch (NumberFormatException ex) {
-                            showAlert(Alert.AlertType.ERROR,
-                                    "Invalid Input",
-                                    "Please enter valid numeric values for priority and expiry age.");
+                            outputArea.appendText("ERROR: Please enter valid numeric values "
+                                    + "for priority and expiry age.\n");
                             return;
                         }
                     }
@@ -158,19 +171,40 @@ public class AlgorithmSelectorUI {
             success = server1Service.setPriorityLoadBalancing(expiryAgeMap);
         }
 
+        // Construct more meaningful messages for output
         if (success) {
-            showAlert(Alert.AlertType.INFORMATION, "Success", "Algorithm set successfully!");
+            if (isPriorityBased) {
+                outputArea.appendText(String.format(
+                        "INFO: Algorithm '%s' set successfully with priority => expiry mapping: %s\n",
+                        selectedAlgorithm, expiryAgeMap
+                ));
+            } else {
+                outputArea.appendText(String.format(
+                        "INFO: Algorithm '%s' set successfully.\n",
+                        selectedAlgorithm
+                ));
+            }
         } else {
-            showAlert(Alert.AlertType.ERROR, "Failure", "Failed to set the algorithm.");
+            outputArea.appendText(String.format(
+                    "ERROR: Failed to set algorithm '%s'.\n",
+                    selectedAlgorithm
+            ));
         }
     }
 
-    private void showAlert(Alert.AlertType alertType, String title, String content) {
-        Alert alert = new Alert(alertType);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    private void handleSetWaitTime() {
+        String waitTimeText = waitTimeField.getText().trim();
+        try {
+            Long waitTime = Long.parseLong(waitTimeText);
+            boolean success = server1Service.updateLoadBalancingWaitTime(waitTime);
+            if (success) {
+                outputArea.appendText("INFO: Wait time set to " + waitTime + " ms successfully.\n");
+            } else {
+                outputArea.appendText("ERROR: Failed to set wait time to " + waitTime + " ms.\n");
+            }
+        } catch (NumberFormatException ex) {
+            outputArea.appendText("ERROR: Please enter a valid numeric wait time.\n");
+        }
     }
 
     public Parent getRoot() {
