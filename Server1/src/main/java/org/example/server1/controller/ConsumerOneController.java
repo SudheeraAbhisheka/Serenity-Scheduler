@@ -37,9 +37,10 @@ public class ConsumerOneController {
     public void setCompleteAndFetch() {
         completeFetchAlgorithm.setDynamicBlockingQueue(kafka_consumer.getBlockingQueueCompleteF());
         completeFetchAlgorithm.executeCATF();
-        kafka_consumer.setSchedulingAlgorithm("complete-and-then-fetch");
+
         algorithmName = "complete-and-then-fetch";
-        serverControllerEmitter.sendUpdate("Scheduling algorithm: complete-and-then-fetch");
+        kafka_consumer.setSchedulingAlgorithm(algorithmName);
+        serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
     }
 
     @PostMapping("/set-load-balancing")
@@ -47,9 +48,10 @@ public class ConsumerOneController {
         loadBalancingAlgorithm.setWlbQueue(kafka_consumer.getWlbQueue());
         loadBalancingAlgorithm.wlb_serverInit();
         loadBalancingAlgorithm.weightedLoadBalancing();
-        kafka_consumer.setSchedulingAlgorithm("weight-load-balancing");
+
         algorithmName = "weight-load-balancing";
-        serverControllerEmitter.sendUpdate("Scheduling algorithm: weight-load-balancing");
+        kafka_consumer.setSchedulingAlgorithm(algorithmName);
+        serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
     }
 
     @PostMapping("/set-priority-complete-fetch")
@@ -58,9 +60,9 @@ public class ConsumerOneController {
         priorityBasedScheduling.priorityBasedScheduling(thresholdTime, "complete-fetch");
         completeFetchAlgorithm.executeCATF();
 
-        kafka_consumer.setSchedulingAlgorithm("age-based-priority-scheduling");
-        algorithmName = "age-based-priority-scheduling";
-        serverControllerEmitter.sendUpdate("Scheduling algorithm: age-based-priority-scheduling");
+        algorithmName = "priority-complete-fetch";
+        kafka_consumer.setSchedulingAlgorithm(algorithmName);
+        serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
     }
 
     @PostMapping("/set-priority-load-balancing")
@@ -70,9 +72,9 @@ public class ConsumerOneController {
         loadBalancingAlgorithm.wlb_serverInit();
         loadBalancingAlgorithm.weightedLoadBalancing();
 
-        kafka_consumer.setSchedulingAlgorithm("age-based-priority-scheduling");
-        algorithmName = "age-based-priority-scheduling";
-        serverControllerEmitter.sendUpdate("Scheduling algorithm: age-based-priority-scheduling");
+        algorithmName = "priority-load-balancing";
+        kafka_consumer.setSchedulingAlgorithm(algorithmName);
+        serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
     }
 
 //    @PostMapping("/update-load-balancing-wait-times")
@@ -109,10 +111,10 @@ public class ConsumerOneController {
 
     @PostMapping("/crashed-tasks")
     public void addCrashedTasks(@RequestParam Integer serverId, @RequestBody List<TaskObject> crashedTasks) throws InterruptedException {
-        if(algorithmName.equals("complete-and-then-fetch")){
+        if(algorithmName.equals("complete-and-then-fetch") || algorithmName.equals("priority-complete-fetch")){
             completeFetchAlgorithm.terminateServer(Integer.toString(serverId), crashedTasks, algorithmName);
         }
-        else if(algorithmName.equals("weight-load-balancing") || algorithmName.equals("age-based-priority-scheduling")){
+        else if(algorithmName.equals("weight-load-balancing") || algorithmName.equals("priority-load-balancing")){
             loadBalancingAlgorithm.terminateServer(Integer.toString(serverId), crashedTasks, algorithmName);
         }
     }

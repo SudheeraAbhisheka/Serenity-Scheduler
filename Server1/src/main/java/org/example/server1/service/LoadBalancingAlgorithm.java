@@ -37,10 +37,17 @@ public class LoadBalancingAlgorithm {
     private final ConcurrentHashMap<String, Queue<TaskObject>> currentWorkingTasks = new ConcurrentHashMap<>();
     TaskObject taskForNextIteration = null;
     private long arrivedTime;
-    private boolean runningThread = false;
+    private boolean thread1_running = false;
+    private boolean thread2_running = false;
+    private ArrayList<TaskObject> tasks;
+    private int rCap;
     volatile long waitingTime1 = 500;
     @Setter
-    volatile long waitingTime2 = 5000;
+    volatile long waitingTime2 = 10000;
+    private double totalSpeedOfServers;
+    private double totalWeightOfTasks;
+    private boolean stopTheIteration = false;
+    private boolean waitingForEmptyServer = false;
 
     public LoadBalancingAlgorithm(RestTemplate restTemplate, Kafka_consumer kafka_consumer, ServerControllerEmitter serverControllerEmitter) {
         this.restTemplate = restTemplate;
@@ -56,7 +63,11 @@ public class LoadBalancingAlgorithm {
                 new ParameterizedTypeReference<LinkedHashMap<String, Double>>() {}
         ).getBody();
 
-        assert servers != null;
+        if(servers == null){
+            return;
+        }
+        totalSpeedOfServers = servers.values().stream().mapToDouble(Double::doubleValue).sum();
+
         for (String serverId : servers.keySet()) {
             if(!runningServers.containsKey(serverId)){
                 System.out.println(serverId + " started");
@@ -69,24 +80,22 @@ public class LoadBalancingAlgorithm {
         }
     }
 
-    ArrayList<TaskObject> tasks;
-    int rCap;
-
     public void weightedLoadBalancing()  {
+        tasks = new ArrayList<>();
         executorService.submit(()->{
             while (!Thread.currentThread().isInterrupted()) {
-                tasks = new ArrayList<>();
-
                 if(!isEmptyServerAvailable){
                     synchronized(lock){
                         try {
                             System.out.println("Waiting for empty server");
+                            waitingForEmptyServer = true;
                             lock.wait();
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         }
                     }
                 }
+                waitingForEmptyServer = false;
                 isEmptyServerAvailable = false;
 
                 if(taskForNextIteration != null){
@@ -105,18 +114,13 @@ public class LoadBalancingAlgorithm {
 
                 rCap = (rCapObject != null) ? rCapObject : 0;
 
-                if(tasks == null){
-                    System.out.println("caught you");
-                }
-                else{
-                    rCap -= tasks.size();
-                }
+                rCap -= tasks.size();
 
                 for(int i = rCap; i > 0; i--) {
                     TaskObject task;
 
                     try {
-                        if(runningThread){
+                        if(thread2_running){
                             synchronized (secondLock){
                                 System.out.println("locking..");
                                 secondLock.wait();
@@ -125,6 +129,7 @@ public class LoadBalancingAlgorithm {
                         }
 
                         task = wlbQueue.take();
+                        totalWeightOfTasks = totalWeightOfTasks + task.getWeight();
 
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
@@ -132,62 +137,91 @@ public class LoadBalancingAlgorithm {
 
                     arrivedTime = System.currentTimeMillis();
 
-                    if(tasks == null){
+                    if(stopTheIteration){
                         taskForNextIteration = task;
+                        stopTheIteration = false;
                         break;
                     }else{
                         tasks.add(task);
                     }
                 }
 
-                if(tasks != null){
+                if(!tasks.isEmpty()){
+                    thread1_running = true;
                     weightLoadBalancing(tasks, servers);
                     System.out.println("tasks size 1(after): " + tasks.size());
+                    tasks.clear();
+                    thread1_running = false;
                 }
 
             }
         });
+
         executorService.submit(()->{
             long lastlyUnlockedFor = Long.MAX_VALUE;
             long indicator = 0;
+            int waitingIndicator = 0;
 
             while(!Thread.currentThread().isInterrupted()){
                 long currentTime = System.currentTimeMillis();
                 long timeDifferance = currentTime - arrivedTime;
 
                 if(timeDifferance >= waitingTime1){
-                    if (tasks != null && !tasks.isEmpty() && arrivedTime != lastlyUnlockedFor) {
-                        runningThread = true;
-                        weightLoadBalancing(tasks, servers);
-                        System.out.println("tasks size 2(after): " + tasks.size());
-                        tasks = null;
-                        runningThread = false;
-                        synchronized (secondLock){
-                            secondLock.notify();
+                    if(arrivedTime != lastlyUnlockedFor){
+                        if (!tasks.isEmpty() && !thread1_running) {
+                            thread2_running = true;
+                            weightLoadBalancing(tasks, servers);
+                            System.out.println("tasks size 2(after): " + tasks.size());
+                            tasks.clear();
+                            stopTheIteration = true;
+                            thread2_running = false;
+                            synchronized (secondLock){
+                                secondLock.notify();
+                            }
+                            lastlyUnlockedFor = arrivedTime;
+                            indicator = 0;
                         }
-                        lastlyUnlockedFor = arrivedTime;
-                        indicator = 0;
                     }
                 }
                 else {
                     indicator++;
 
-                    if(waitingTime1 * indicator > waitingTime2){
-                        if (tasks != null && !tasks.isEmpty()) {
-                            runningThread = true;
+                    double totalTimeTakes = totalWeightOfTasks/totalSpeedOfServers;
+
+                    System.out.println("total time: " + totalTimeTakes);
+
+                    if(totalTimeTakes > 1 || waitingTime1 * indicator > waitingTime2){
+                        if (!tasks.isEmpty() && !thread1_running) {
+                            thread2_running = true;
                             weightLoadBalancing(tasks, servers);
                             System.out.println("tasks size 3(after): " + tasks.size());
-                            tasks = null;
-                            runningThread = false;
+                            tasks.clear();
+                            stopTheIteration = true;
+                            thread2_running = false;
                             synchronized (secondLock){
                                 secondLock.notify();
                             }
                             lastlyUnlockedFor = arrivedTime;
+                            indicator = 0;
+                            totalWeightOfTasks = 0;
                         }
 
-                        indicator = 0;
                     }
                 }
+
+/*                if(waitingForEmptyServer){
+                    waitingIndicator++;
+                    if(waitingTime1 * waitingIndicator > waitingTime2){
+                        System.out.println("Hello world");
+                        synchronized(lock){
+                            lock.notify();
+                        }
+
+                        waitingIndicator = 0;
+                    }
+                }else{
+                    waitingIndicator = 0;
+                }*/
 
                 try {
                     Thread.sleep(waitingTime1);
@@ -317,18 +351,18 @@ public class LoadBalancingAlgorithm {
         kafka_consumer.setCrashedTasks(true);
 
         switch(algorithmName){
-            case "age-based-priority-scheduling": {
-                for(TaskObject task : crashedTasks) {
-                    kafka_consumer.getBlockingQueuePriorityS().add(task);
-                }
-                break;
-            }
-
             case "weight-load-balancing" :
                 for(TaskObject task : crashedTasks) {
                     kafka_consumer.getWlbQueue().add(task);
                 }
                 break;
+
+            case "priority-load-balancing": {
+                for(TaskObject task : crashedTasks) {
+                    kafka_consumer.getBlockingQueuePriorityS().add(task);
+                }
+                break;
+            }
 
             default:
                 throw new IllegalArgumentException("Unsupported algorithm: " + algorithmName);
@@ -344,6 +378,8 @@ public class LoadBalancingAlgorithm {
         synchronized (lock) {
             lock.notify();
         }
+
+        wlb_serverInit();
 
     }
 }

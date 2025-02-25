@@ -6,9 +6,6 @@ import 'react-toastify/dist/ReactToastify.css';
 import useWebSocket from './hooks/useWebSocket';
 
 function App() {
-    // ------------------
-    // SSE / WebSocket states
-    // ------------------
     const [messages, setMessages] = useState([]);
     const [serverId, setServerId] = useState('');
     const messagesContainerRef = useRef(null);
@@ -16,13 +13,11 @@ function App() {
     const [messages8083, setMessages8083] = useState([]);
     const messages8083ContainerRef = useRef(null);
 
-    // For server load/capacity
     const messages8084 = useWebSocket('/topic/servers');
     const initMessages = useWebSocket('/topic/serverInit');
     const detailMessages = useWebSocket('/topic/serverDetails');
     const [serverData, setServerData] = useState({});
 
-    // For task completion
     const [totalTasks, setTotalTasks] = useState(0);
     const [taskCompletion, setTaskCompletion] = useState({});
     const totalTasksMessages = useWebSocket('/topic/taskCompletionTotalTasks');
@@ -30,11 +25,10 @@ function App() {
 
     useEffect(() => {
         if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+            messagesContainerRef.current.scrollTop = 0;
         }
     }, [messages]);
 
-    // SSE for 8083
     useEffect(() => {
         const sseUrl8083 = 'http://localhost:8083/consumer-one/emitter/subscribe';
         const es8083 = new EventSource(sseUrl8083);
@@ -54,7 +48,7 @@ function App() {
 
     useEffect(() => {
         if (messages8084.length > 0) {
-            setMessages(messages8084);
+            setMessages(messages8084.slice().reverse());
         }
     }, [messages8084]);
 
@@ -97,9 +91,6 @@ function App() {
         }
     };
 
-    // ------------------
-    // Process initMessages -> serverData
-    // ------------------
     useEffect(() => {
         if (initMessages.length > 0) {
             const latestInit = initMessages[initMessages.length - 1];
@@ -107,7 +98,6 @@ function App() {
                 const newData = { ...prevData };
                 Object.entries(latestInit).forEach(([id, details]) => {
                     newData[id] = {
-                        // preserve existing load if already set
                         load: newData[id]?.load ?? 0,
                         speed: details.speed,
                         capacity: details.capacity,
@@ -118,18 +108,13 @@ function App() {
         }
     }, [initMessages]);
 
-    // ------------------
-    // Process detailMessages -> serverData
-    // ------------------
     useEffect(() => {
         if (detailMessages.length > 0) {
-            // The last message is a map, e.g.: { server1: 30.0, server2: 45.5, ... }
             const latestLoads = detailMessages[detailMessages.length - 1];
             setServerData((prevData) => {
                 const newData = { ...prevData };
                 Object.entries(latestLoads).forEach(([id, load]) => {
                     newData[id] = {
-                        // carry over existing speed/capacity (if any)
                         ...newData[id],
                         load: load,
                     };
@@ -139,9 +124,6 @@ function App() {
         }
     }, [detailMessages]);
 
-    // ------------------
-    // Chart data
-    // ------------------
     const serverIds = Object.keys(serverData);
     const speeds = serverIds.map((id) => serverData[id].speed ?? 0);
     const capacities = serverIds.map((id) => serverData[id].capacity ?? 0);
@@ -155,7 +137,6 @@ function App() {
             show: true,
             position: 'top',
             formatter: (params) => {
-                // If capacity is 0, you could mark it as "Crashed"
                 return params.data === 0 ? 'Crashed' : params.data;
             },
         },
@@ -207,12 +188,8 @@ function App() {
         series: [capacitySeries, loadSeries],
     };
 
-    // ------------------
-    // Task Completion data
-    // ------------------
     useEffect(() => {
         if (totalTasksMessages.length > 0) {
-            // last element in the array is the latest message
             const latestTotal = totalTasksMessages[totalTasksMessages.length - 1];
             setTotalTasks(latestTotal);
         }
@@ -227,9 +204,6 @@ function App() {
 
     const totalCompletedTasks = Object.values(taskCompletion).reduce((sum, val) => sum + val, 0);
 
-    // ------------------
-    // (NEW) Database Tasks Table
-    // ------------------
     const [tasks, setTasks] = useState([]);
     const [isTableExpanded, setIsTableExpanded] = useState(false);
 
@@ -247,7 +221,6 @@ function App() {
     const clearAllTasks = () => {
         fetch('http://localhost:8084/api/delete-tasks', { method: 'DELETE' })
             .then(() => {
-                // After successful delete, clear the tasks in state
                 setTasks([]);
             })
             .catch((error) => {
@@ -255,10 +228,8 @@ function App() {
             });
     };
 
-    // Toggle the table; on expand, refresh tasks
     const toggleTable = () => {
         setIsTableExpanded((prev) => !prev);
-        // If we are about to expand, fetch fresh tasks
         if (!isTableExpanded) {
             fetchTasks();
         }
@@ -274,8 +245,6 @@ function App() {
             }}
         >
             <h1>Server Status Dashboard</h1>
-
-            {/* Chart Section */}
             <div
                 style={{
                     border: '1px solid #aaa',
@@ -288,8 +257,6 @@ function App() {
                     style={{ height: 400, width: '100%' }}
                 />
             </div>
-
-            {/* Task Completion Section */}
             <div style={{ marginTop: '20px', border: '1px solid #aaa', padding: '10px' }}>
                 <h3>Task Completion Status</h3>
                 {Object.keys(taskCompletion).length > 0 ? (
@@ -310,8 +277,6 @@ function App() {
                     <p>No task completion data yet.</p>
                 )}
             </div>
-
-            {/* Crash Server Input/Button */}
             <div
                 style={{
                     display: 'flex',
@@ -354,15 +319,12 @@ function App() {
                     Clear Messages
                 </button>
             </div>
-
-            {/* Messages from 8084 and 8083 side by side */}
             <div
                 style={{
                     display: 'flex',
                     gap: '20px'
                 }}
             >
-                {/* Left column: messages from 8084 */}
                 <div
                     ref={messagesContainerRef}
                     style={{
@@ -380,8 +342,6 @@ function App() {
                         ))}
                     </ul>
                 </div>
-
-                {/* Right column: messages from 8083 */}
                 <div
                     ref={messages8083ContainerRef}
                     style={{
@@ -400,8 +360,6 @@ function App() {
                     </ul>
                 </div>
             </div>
-
-            {/* --------------- NEW: Collapsible Database Table --------------- */}
             <div
                 style={{
                     marginTop: '20px',
@@ -409,7 +367,6 @@ function App() {
                     padding: '10px'
                 }}
             >
-                {/* Toggle arrow */}
                 <div
                     onClick={toggleTable}
                     style={{
@@ -419,14 +376,11 @@ function App() {
                         userSelect: 'none'
                     }}
                 >
-                    {/* Simple arrow indicator */}
                     <span style={{ marginRight: '8px', fontWeight: 'bold' }}>
                         {isTableExpanded ? '▼' : '►'}
                     </span>
                     <h3 style={{ margin: 0 }}>Tasks Table</h3>
                 </div>
-
-                {/* Conditionally render table only if expanded */}
                 {isTableExpanded && (
                     <div style={{ marginTop: '10px' }}>
                         <button
@@ -456,7 +410,6 @@ function App() {
                         >
                             Refresh
                         </button>
-
                         <table
                             style={{
                                 borderCollapse: 'collapse',
@@ -499,7 +452,6 @@ function App() {
                     </div>
                 )}
             </div>
-
             <ToastContainer />
         </div>
     );

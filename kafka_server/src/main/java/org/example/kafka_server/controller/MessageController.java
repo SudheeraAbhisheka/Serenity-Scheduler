@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.kafka_server.config.RabbitMQConfig;
 import org.example.kafka_server.service.KafkaProducerService;
+import org.example.kafka_server.service.MessageService;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,52 +12,31 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import com.example.TaskObject;
 
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 @RestController
 public class MessageController {
 
-    private final KafkaProducerService kafkaProducerService;
-    @Autowired
-    private RabbitTemplate rabbitTemplate;
+    private final MessageService messageService;
 
-    public MessageController(KafkaProducerService kafkaProducerService) {
-        this.kafkaProducerService = kafkaProducerService;
+    public MessageController(MessageService messageService) {
+        this.messageService = messageService;
     }
 
-    @PostMapping("/kafka-server/topic_1-10")
-    public String kafka_sendMessage1(@RequestBody TaskObject task) throws InterruptedException {
-        kafkaProducerService.sendMessage("topic_1-10", task);
-
-//        System.out.println(Thread.currentThread().getId() + " started");
-//        Thread.sleep(500);
-//        System.out.println(Thread.currentThread().getId());
-//        System.out.println();
-
-        return "Message sent!";
-    }
-//
-//    @PostMapping("/send-message/topic_11-20")
-//    public String sendMessage11_21(@RequestBody TaskObject task) {
-//        kafkaProducerService.sendMessage("topic_11-20", task);
-//        return "Message sent!";
-//    }
-
-    @PostMapping("/rebbitmq-server/topic_1-10")
-    public String rabbitmq_sendMessage1(@RequestBody TaskObject task) throws JsonProcessingException {
-        String routingKey = "consumer.one";
-
-        ObjectMapper objectMapper = new ObjectMapper();
-        String message = objectMapper.writeValueAsString(task);
-
-        rabbitTemplate.convertAndSend(RabbitMQConfig.DIRECT_EXCHANGE, routingKey, message);
-        return "Message sent!";
+    @PostMapping("/kafka-server/set-broker")
+    public void setMessageBroker(@RequestBody String messageBroker) {
+        messageService.setMessageBroker(messageBroker);
     }
 
-//    @PostMapping("/send-message/topic_11-20")
-//    public String sendMessage11_21(@RequestBody TaskObject task) {
-//        kafkaProducerService.sendMessage("topic_11-20", task);
-//        return "Message sent!";
-//    }
+    @PostMapping("/kafka-server/set-message")
+    public void setMessage(@RequestBody Map<String, Integer> map) {
+        messageService.runTimedHelloWorld(map);
+    }
+
+    @PostMapping("/kafka-server/set-message-scheduled")
+    public void setMessageScheduledRate(@RequestBody Map<String, Integer> mapScheduled) {
+        messageService.runTimedHelloWorldScheduled(mapScheduled);
+    }
 }

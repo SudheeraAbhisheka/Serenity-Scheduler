@@ -4,47 +4,40 @@ import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import org.example.servers_terminal.service.Server1Service;
+import lombok.Getter;
 import org.springframework.context.ApplicationContext;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ArrayList;
 
 public class AlgorithmSelectorUI {
+    private final RestTemplate restTemplate;
+    @Getter
+    private final VBox root;
 
-    private final ApplicationContext context;
-    private final Server1Service server1Service;
-    private final VBox rootLayout;
-
-    // UI controls
     private ComboBox<String> algorithmComboBox;
     private CheckBox priorityCheckBox;
-    private VBox expiryAgeVBox;   // Will hold rows of (priority, expiry) input
+    private VBox expiryAgeVBox;
     private Button addRowButton;
-    private Button setButton;
 
-    // New UI controls for wait time input
     private TextField waitTimeField;
-    private Button setWaitTimeButton;
-    private Button clearTerminalButton;
 
-    // TextArea for displaying messages (instead of Alerts)
     private TextArea outputArea;
 
     public AlgorithmSelectorUI(ApplicationContext context) {
-        this.context = context;
-        this.server1Service = context.getBean(Server1Service.class);
-
-        // Root layout container
-        rootLayout = new VBox(10);
-        rootLayout.setPadding(new Insets(15));
-
+        this.restTemplate = context.getBean(RestTemplate.class);
+        root = new VBox(10);
+        root.setPadding(new Insets(15));
         createUI();
     }
 
     private void createUI() {
-        // 1) Algorithm ComboBox
         Label algorithmLabel = new Label("Select Algorithm:");
         algorithmComboBox = new ComboBox<>();
         algorithmComboBox.getItems().addAll("Complete and then fetch", "Load balancing");
@@ -52,17 +45,14 @@ public class AlgorithmSelectorUI {
 
         HBox algorithmBox = new HBox(10, algorithmLabel, algorithmComboBox);
 
-        // 2) Priority CheckBox
         priorityCheckBox = new CheckBox("Based on priority");
 
-        // 3) The Expiry Age input area
         expiryAgeVBox = new VBox(5);
         expiryAgeVBox.setPadding(new Insets(10, 0, 0, 0));
         expiryAgeVBox.setVisible(false);
         expiryAgeVBox.setManaged(false);
         expiryAgeVBox.getChildren().addAll(createExpiryAgeRow(), createExpiryAgeRow());
 
-        // 3.a) "Add Row" button
         addRowButton = new Button("Add Row");
         addRowButton.setVisible(false);
         addRowButton.setManaged(false);
@@ -76,31 +66,27 @@ public class AlgorithmSelectorUI {
             addRowButton.setManaged(newVal);
         });
 
-        // 4) "Set" button
-        setButton = new Button("Set");
+        Button setButton = new Button("Set");
         setButton.setOnAction(e -> handleSetButton());
 
-        // 5) Wait Time input and button
         Label waitTimeLabel = new Label("Wait Time (ms):");
         waitTimeField = new TextField();
         waitTimeField.setPromptText("Enter wait time in ms");
-        setWaitTimeButton = new Button("Set Wait Time");
+
+        Button setWaitTimeButton = new Button("Set Wait Time");
         setWaitTimeButton.setOnAction(e -> handleSetWaitTime());
         HBox waitTimeBox = new HBox(10, waitTimeLabel, waitTimeField, setWaitTimeButton);
 
-        // 6) TextArea for output
         outputArea = new TextArea();
         outputArea.setEditable(false);
         outputArea.setWrapText(true);
         outputArea.setPrefHeight(200);
 
-        // 7) "Clear Terminal" button
-        clearTerminalButton = new Button("Clear Terminal");
+        Button clearTerminalButton = new Button("Clear Terminal");
         clearTerminalButton.setOnAction(e -> outputArea.clear());
         HBox setButtonBox = new HBox(10, setButton, clearTerminalButton);
 
-        // Add everything to the root layout
-        rootLayout.getChildren().addAll(
+        root.getChildren().addAll(
                 algorithmBox,
                 priorityCheckBox,
                 priorityBox,
@@ -110,11 +96,6 @@ public class AlgorithmSelectorUI {
         );
     }
 
-    /**
-     * Creates a single row (HBox) containing:
-     *  - A TextField for Priority (integer)
-     *  - A TextField for Expiry Age (double)
-     */
     private HBox createExpiryAgeRow() {
         Label priorityLabel = new Label("Priority:");
         TextField priorityField = new TextField();
@@ -131,12 +112,10 @@ public class AlgorithmSelectorUI {
         String selectedAlgorithm = algorithmComboBox.getValue();
         boolean isPriorityBased = priorityCheckBox.isSelected();
 
-        // Gather data if priority-based
         LinkedHashMap<Integer, Long> expiryAgeMap = new LinkedHashMap<>();
         if (isPriorityBased) {
             for (int i = 0; i < expiryAgeVBox.getChildren().size(); i++) {
                 if (expiryAgeVBox.getChildren().get(i) instanceof HBox row) {
-                    // Extract text fields
                     List<TextField> fields = new ArrayList<>();
                     for (var node : row.getChildren()) {
                         if (node instanceof TextField tf) {
@@ -147,11 +126,9 @@ public class AlgorithmSelectorUI {
                         try {
                             int priority = Integer.parseInt(fields.get(0).getText().trim());
                             long expiryMs = Long.parseLong(fields.get(1).getText().trim());
-                            // Insert into map
                             expiryAgeMap.put(priority, expiryMs);
                         } catch (NumberFormatException ex) {
-                            outputArea.appendText("ERROR: Please enter valid numeric values "
-                                    + "for priority and expiry age.\n");
+                            outputArea.appendText("ERROR: Please enter valid numeric values for priority and expiry age.\n");
                             return;
                         }
                     }
@@ -160,35 +137,24 @@ public class AlgorithmSelectorUI {
         }
 
         boolean success = false;
-        // Decide which method to call on server1Service
         if ("Complete and then fetch".equals(selectedAlgorithm) && !isPriorityBased) {
-            success = server1Service.setCompleteAndFetch();
+            success = postRequest("set-complete-and-fetch", null);
         } else if ("Load balancing".equals(selectedAlgorithm) && !isPriorityBased) {
-            success = server1Service.setLoadBalancing();
+            success = postRequest("set-load-balancing", null);
         } else if ("Complete and then fetch".equals(selectedAlgorithm) && isPriorityBased) {
-            success = server1Service.setPriorityCompleteFetch(expiryAgeMap);
+            success = postRequest("set-priority-complete-fetch", expiryAgeMap);
         } else if ("Load balancing".equals(selectedAlgorithm) && isPriorityBased) {
-            success = server1Service.setPriorityLoadBalancing(expiryAgeMap);
+            success = postRequest("set-priority-load-balancing", expiryAgeMap);
         }
 
-        // Construct more meaningful messages for output
         if (success) {
             if (isPriorityBased) {
-                outputArea.appendText(String.format(
-                        "INFO: Algorithm '%s' set successfully with priority => expiry mapping: %s\n",
-                        selectedAlgorithm, expiryAgeMap
-                ));
+                outputArea.appendText(String.format("INFO: Algorithm '%s' set successfully with priority => expiry mapping: %s\n", selectedAlgorithm, expiryAgeMap));
             } else {
-                outputArea.appendText(String.format(
-                        "INFO: Algorithm '%s' set successfully.\n",
-                        selectedAlgorithm
-                ));
+                outputArea.appendText(String.format("INFO: Algorithm '%s' set successfully.\n", selectedAlgorithm));
             }
         } else {
-            outputArea.appendText(String.format(
-                    "ERROR: Failed to set algorithm '%s'.\n",
-                    selectedAlgorithm
-            ));
+            outputArea.appendText(String.format("ERROR: Failed to set algorithm '%s'.\n", selectedAlgorithm));
         }
     }
 
@@ -196,7 +162,7 @@ public class AlgorithmSelectorUI {
         String waitTimeText = waitTimeField.getText().trim();
         try {
             Long waitTime = Long.parseLong(waitTimeText);
-            boolean success = server1Service.updateLoadBalancingWaitTime(waitTime);
+            boolean success = postRequest("update-wait-time", waitTime);
             if (success) {
                 outputArea.appendText("INFO: Wait time set to " + waitTime + " ms successfully.\n");
             } else {
@@ -207,7 +173,16 @@ public class AlgorithmSelectorUI {
         }
     }
 
-    public Parent getRoot() {
-        return rootLayout;
+    private <T> boolean postRequest(String suffix, T payload) {
+        String url = "http://localhost:8083/consumer-one/" + suffix;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<T> request = new HttpEntity<>(payload, headers);
+        try {
+            restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

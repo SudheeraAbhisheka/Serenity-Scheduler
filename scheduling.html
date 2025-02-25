@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Scheduling Algorithms</title>
+  <style>
+    nav {
+      background-color: #f5f5f5;
+      padding: 0.75rem;
+    }
+    nav a {
+      margin: 0 0.5rem;
+      text-decoration: none;
+      color: #333;
+      font-weight: bold;
+    }
+    nav a:hover {
+      color: #007acc;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="scheduling.html">Scheduling algorithms</a>
+    <a href="simulator.html">Multi-Server simulator</a>
+    <a href="controller-dashboard.html">Controller & Dashboard</a>
+  </nav>
+
+  <div class="container">
+    <h1>Scheduling Algorithms</h1>
+    <p>
+      The system supports multiple scheduling algorithms:
+    </p>
+    <ol>
+      <li>Complete and then fetch</li>
+      <li>Load balancing</li>
+      <li>Priority scheduling</li>
+    </ol>
+
+    <h2>1. Complete and then Fetch</h2>
+    <p>
+      The scheduler only passes tasks to a server if that server has at least 
+      one capacity slot free. This effectively creates a similar number of 
+      threads to the servers, with each thread handling tasks separately.
+    </p>
+
+    <h2>2. Load Balancing</h2>
+    <p>
+      Load balancing attempts to assign tasks in a way that servers achieve 
+      the shortest finishing time possible.
+      <br /><br />
+      <strong>Mechanism:</strong><br />
+      <ul>
+        <li>
+          A "listening and scheduling" thread receives tasks (from Kafka or 
+          via the priority queue).
+        </li>
+        <li>
+          Load balancing only happens if there are servers with free capacity. 
+          The scheduler calculates an estimated finishing time for each server 
+          (an <em>O(n<sup>2</sup>)</em> operation), so to optimize, it often 
+          waits until server load drops below a threshold.
+        </li>
+        <li>
+          Once ready, the scheduling thread fetches a batch of tasks from the 
+          incoming queue, matching the total available capacity across all servers.
+        </li>
+        <li>
+          It then distributes this batch optimally based on current server load, 
+          task weight, and server speed.
+        </li>
+      </ul>
+      <strong>Timing Thread - First Scenario:</strong><br />
+      If not enough tasks are available to fill all capacities, the timing 
+      thread steps in and pushes the tasks that have been collected so far to 
+      distribution.
+      <br /><br />
+      <strong>Timing Thread - Second Scenario:</strong><br />
+      If the total capacity is high and it takes too long to collect enough 
+      tasks, the timing thread again triggers distribution of whatever tasks 
+      have been collected.
+    </p>
+
+    <h2>3. Priority Scheduling</h2>
+    <p>
+      Priority scheduling can be used with both <em>Complete and then fetch</em> 
+      and <em>Load balancing</em>. Each priority level has a threshold time to 
+      prevent starvation (where lower priority tasks never execute because higher 
+      priority tasks keep arriving).
+    </p>
+    <p>
+      <strong>Mechanism:</strong><br />
+      There are three threads involved:
+    </p>
+    <ul>
+      <li>Input thread (reads tasks from the incoming queue into a priority map)</li>
+      <li>Scheduling thread (sends tasks to servers)</li>
+      <li>Timing thread (manages how tasks are batched and preventing starvation)</li>
+    </ul>
+    <p>
+      The scheduling thread checks for tasks that have exceeded the threshold 
+      time (making them "old tasks") and prioritizes them to avoid starvation. 
+      Otherwise, tasks are taken from the highest priority available. If there 
+      are no tasks in the priority map, the scheduling thread blocks until the 
+      timing thread signals it.
+    </p>
+
+    <h3>Comparison with a Common Priority Scheduling Approach</h3>
+    <p>
+      Many standard priority-scheduling implementations gather a batch of tasks 
+      and assign priorities at once. In this system, the <em>timing thread</em> 
+      dynamically watches incoming tasks. This is more flexible than simply 
+      setting a fixed blocking time for collecting tasks because the arrival 
+      speeds can change.
+    </p>
+  </div>
+</body>
+</html>

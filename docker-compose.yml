@@ -79,12 +79,19 @@ services:
       - SPRING_DATA_CASSANDRA_PORT=9042
       - SERVER_PORT=8084
     depends_on:
-      - cassandra
+      cassandra:
+        condition: service_healthy
 
   cassandra:
     image: cassandra:latest
     container_name: cassandra
     ports:
       - "9042:9042"
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh cassandra -e 'describe keyspaces'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s 
 
       

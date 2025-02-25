@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Multi-Server Simulator</title>
+  <style>
+    nav {
+      background-color: #f5f5f5;
+      padding: 0.75rem;
+    }
+    nav a {
+      margin: 0 0.5rem;
+      text-decoration: none;
+      color: #333;
+      font-weight: bold;
+    }
+    nav a:hover {
+      color: #007acc;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="scheduling.html">Scheduling algorithms</a>
+    <a href="simulator.html">Multi-Server simulator</a>
+    <a href="controller-dashboard.html">Controller & Dashboard</a>
+  </nav>
+
+  <div class="container">
+    <h1>Multi-Server Simulator</h1>
+    <p>
+      This system simulates multiple servers processing tasks in real-time and 
+      supports automatic detection of new servers as well as server crashes.
+    </p>
+
+    <ul>
+      <li>Heartbeat mechanism and task recovery</li>
+      <li>Identifying new servers automatically</li>
+    </ul>
+
+    <h2>Heartbeat Mechanism &amp; Task Recovery</h2>
+    <p>
+      Each server sends periodic heartbeat signals. A "heartbeat checking thread" 
+      monitors these signals and detects any stopped or crashed server. On a 
+      crash:
+    </p>
+    <ul>
+      <li>
+        Tasks currently in that server's queue are recovered.
+      </li>
+      <li>
+        Tasks "in transit" between the scheduler and the server are also recovered.
+      </li>
+    </ul>
+
+    <h2>Identifying New Servers Automatically</h2>
+    <p>
+      When a new server is added, the scheduler is notified automatically, 
+      so that it can start distributing tasks to the new server without 
+      needing a manual refresh.
+    </p>
+  </div>
+</body>
+</html>

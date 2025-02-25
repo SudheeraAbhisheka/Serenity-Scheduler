@@ -51,20 +51,16 @@ public class Kafka_consumer {
         }
 
         switch(schedulingAlgorithm){
-            case "complete-and-then-fetch": {
+            case "complete-and-then-fetch":
                 blockingQueueCompleteF.put(task);
-
                 break;
-            }
-
-            case "age-based-priority-scheduling": {
-                blockingQueuePriorityS.add(task);
-
-                break;
-            }
 
             case "weight-load-balancing" :
                 wlbQueue.add(task);
+                break;
+
+            case "priority-complete-fetch", "priority-load-balancing":
+                blockingQueuePriorityS.add(task);
                 break;
 
             default:

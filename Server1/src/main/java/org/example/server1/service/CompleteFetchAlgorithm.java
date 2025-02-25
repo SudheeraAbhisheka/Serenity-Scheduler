@@ -116,7 +116,7 @@ public class CompleteFetchAlgorithm {
                 break;
             }
 
-            case "age-based-priority-scheduling": {
+            case "priority-complete-fetch": {
                 for(TaskObject task : crashedTasks) {
                     kafka_consumer.getBlockingQueuePriorityS().add(task);
                 }
@@ -137,6 +137,9 @@ public class CompleteFetchAlgorithm {
         synchronized (lock) {
             lock.notify();
         }
+
+        executeCATF();
+        System.out.println("refreshed");
 
     }
 }

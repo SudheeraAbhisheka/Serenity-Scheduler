@@ -18,8 +18,8 @@ public class PriorityBasedScheduling {
     private long arrivedTime;
     volatile long waitingTime1 = 500;
     @Setter
-    volatile long waitingTime2 = 5000;
-    private final List<OldObject> oldObjects = new ArrayList<>();
+    volatile long waitingTime2 = 10000;
+    private OldObject oldObject;
     long maxAge = 0;
 
     public PriorityBasedScheduling(CompleteFetchAlgorithm schedulingAlgorithm, LoadBalancingAlgorithm loadBalancingAlgorithm){
@@ -79,6 +79,10 @@ public class PriorityBasedScheduling {
 
         executorService.submit(() -> {
             while (!Thread.currentThread().isInterrupted()) {
+                long oldest = 0;
+                int priorityOfOldest = 0;
+                TaskObject oldestTask;
+
                 try {
                     for (Map.Entry<Integer, Queue<ArrivedTimeObject>> entry : queuePriorityX.entrySet()) {
                         Integer priority = entry.getKey();
@@ -88,36 +92,33 @@ public class PriorityBasedScheduling {
                             long age = System.currentTimeMillis() - priorityQueue.peek().getArrivedTime();
 
                             if (age > thresholdTime.get(priority)) {
-                                oldObjects.add(new OldObject(age, priorityQueue.poll().getTaskObject()));
+                                if(age > oldest){
+                                    oldest = age;
+                                    priorityOfOldest = priority;
+                                }
                             }
 
                         }
                     }
 
-                    if (!oldObjects.isEmpty()) {
-                        oldObjects.sort(Comparator.comparingLong(OldObject::getAge).reversed());
-                        TaskObject k = oldObjects.remove(0).getTaskObject();
-                        System.out.println("old object");
+                    if(oldest != 0){
+                        oldestTask = queuePriorityX.get(priorityOfOldest).poll().getTaskObject();
+
+                        System.out.println("old task: " + oldestTask.getPriority());
 
                         if(completeFetchOrLB.equals("complete-fetch")){
-                            completeFetchAlgorithm.getDynamicBlockingQueue().put(k);
+                            completeFetchAlgorithm.getDynamicBlockingQueue().put(oldestTask);
                         }
                         else if(completeFetchOrLB.equals("load-balancing")){
-                            loadBalancingAlgorithm.getWlbQueue().put(k);
+                            loadBalancingAlgorithm.getWlbQueue().put(oldestTask);
                         }
-
-                    } else {
+                    }
+                    else {
                         boolean priorityQueuesAreEmpty = true;
 
                         for(Queue<ArrivedTimeObject> priorityQueue : queuePriorityX.values()){
                             if(!priorityQueue.isEmpty()){
                                 TaskObject task = priorityQueue.poll().getTaskObject();
-                                System.out.println("completed: "+task.getKey()+", priority: "+task.getPriority());
-                                for(Queue<ArrivedTimeObject> pq : queuePriorityX.values()){
-                                    System.out.printf("%s, ", pq.size());
-                                }
-                                System.out.println();
-
 
                                 if(completeFetchOrLB.equals("complete-fetch")){
                                     completeFetchAlgorithm.getDynamicBlockingQueue().put(task);
@@ -152,7 +153,7 @@ public class PriorityBasedScheduling {
             }
         });
 
-        executorService.submit(()->{
+        executorService.submit(() -> {
             long lastlyUnlockedFor = Long.MAX_VALUE;
             long indicator = 0;
 

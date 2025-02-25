@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Serenity Distributed Task Scheduler & Multi-Server Simulator</title>
+  <style>
+    /* Basic style for navigation bar */
+    nav {
+      background-color: #f5f5f5;
+      padding: 0.75rem;
+    }
+    nav a {
+      margin: 0 0.5rem;
+      text-decoration: none;
+      color: #333;
+      font-weight: bold;
+    }
+    nav a:hover {
+      color: #007acc;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    h1, h2, h3 {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="scheduling.html">Scheduling algorithms</a>
+    <a href="simulator.html">Multi-Server simulator</a>
+    <a href="controller-dashboard.html">Controller & Dashboard</a>
+  </nav>
+
+  <div class="container">
+    <h1>Serenity Distributed Task Scheduler &amp; Multi-Server Simulator</h1>
+    <p>
+      <strong>What this system does:</strong>
+      <br />
+      The scheduler retrieves tasks from a message broker. Based on the
+      scheduling algorithm, each task is sent to a server. Task processing is
+      represented by the server sleep (sleeping time is calculated by dividing
+      the weight of the task by the speed of the particular server). The server
+      saves the completed task in the database.
+    </p>
+
+    <h2>Docker Setup</h2>
+    <p>
+      The system uses Docker to containerize:
+      <ul>
+        <li>Servers</li>
+        <li>Algorithm schedulers</li>
+        <li>Message brokers (Kafka and RabbitMQ)</li>
+        <li>Database (Cassandra)</li>
+      </ul>
+      Outside the Docker environment:
+      <ul>
+        <li>Controller</li>
+        <li>Dashboard</li>
+      </ul>
+    </p>
+
+    <h2>Uniqueness &amp; Efficiency</h2>
+    <p>
+      The main uniqueness of the program is that after a task is generated, 
+      it doesn't go through any thread sleep until it starts to process. 
+      Therefore, the program can handle high throughput and schedule 
+      efficiently (minimizing wait inside the scheduler) for any pattern of 
+      task arrival speed.
+    </p>
+    <p>
+      <strong>Common scheduling method:</strong> The scheduler sleeps for a fixed
+      duration before waking up to perform scheduling tasks.
+      <br />
+      <strong>Pros:</strong> Simple mechanism, works efficiently for tasks 
+      arriving in similar patterns. <br />
+      <strong>Cons:</strong> Works less efficiently when task arrival patterns 
+      vary over time.
+    </p>
+    <p>
+      <strong>This program:</strong>
+      <br />
+      <strong>Pros:</strong> Works efficiently for varying task arrival patterns.<br />
+      <strong>Cons:</strong> Mechanism is more complex compared to fixed 
+      sleeping time schedulers.
+    </p>
+
+    <h2>Other Key Functionalities</h2>
+    <ul>
+      <li>
+        Technology selection for high performance: Kafka message broker, WebSockets, 
+        React + eCharts.
+      </li>
+      <li>
+        Heartbeat mechanism to identify crashed servers. If a crash is detected, 
+        tasks in the crashed server queue and tasks currently "in transit" 
+        (between scheduler and server) are recovered.
+      </li>
+    </ul>
+  </div>
+</body>
+</html>

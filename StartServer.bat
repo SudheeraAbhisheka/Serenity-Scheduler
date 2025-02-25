@@ -1,4 +1,5 @@
 @echo off
 cd /d "%~dp0"
 echo Starting "docker-compose up --build"...
-start cmd /k "docker-compose up --build -d"
+start cmd /c "docker-compose up --build -d"
+exit

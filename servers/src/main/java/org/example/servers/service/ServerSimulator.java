@@ -158,7 +158,7 @@ public class ServerSimulator {
                 serversLoad.put(serverId, queueServer.size());
 
                 if(queueServer.isEmpty()){
-                    sendEmptyServer(serverId);
+                    postRequest("set-empty-server?serverId=" + serverId, null);
                 }
                 TaskObject task = queueServer.take();
 
@@ -179,16 +179,7 @@ public class ServerSimulator {
 
                 System.out.println("completed: "+task.getKey()+", priority: "+task.getPriority());
 
-                TaskEntity entity = new TaskEntity();
-                entity.setKey(task.getKey());
-                entity.setValue(task.getValue());
-                entity.setWeight(task.getWeight());
-                entity.setGeneratedAt(task.getGeneratedAt());
-                entity.setExecuted(task.isExecuted());
-                entity.setPriority(task.getPriority());
-                entity.setStartOfProcessAt(task.getStartOfProcessAt());
-                entity.setEndOfProcessAt(task.getEndOfProcessAt());
-                entity.setServerKey(task.getServerKey());
+                TaskEntity entity = new TaskEntity(task);
 
                 try {
                     taskRepository.save(entity);
@@ -260,7 +251,7 @@ public class ServerSimulator {
 
                 System.out.printf("Crashed tasks - %s: %s\n", serverId, crashedTasksList.stream().map(TaskObject::getKey).toList());
 
-                sendCrashedServerTasks(crashedTasksList, serverId);
+                postRequest("crashed-tasks?serverId=" + serverId, crashedTasksList);
 
                 webSocketController.sendServerInit(serversDetails);
 
@@ -272,35 +263,15 @@ public class ServerSimulator {
 
     }
 
-    private void sendEmptyServer(String serverId){
+    private <T> void postRequest(String suffix, T payload) {
+        String url = "http://server1:8083/consumer-one/" + suffix;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<T> request = new HttpEntity<>(payload, headers);
         try {
-            String url = "http://server1:8083/consumer-one/set-empty-server?serverId=" + serverId;
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<Void> request = new HttpEntity<>(headers);
-
-            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-
-//            System.out.printf("Successfully sent tasks. Response: %s\n", response.getBody());
+            restTemplate.exchange(url, HttpMethod.POST, request, String.class);
         } catch (Exception e) {
-            System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
-        }
-    }
-
-    public void sendCrashedServerTasks(List<TaskObject> crashedTasksList, String serverId) {
-        try {
-            String url = "http://server1:8083/consumer-one/crashed-tasks?serverId=" + serverId;
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<List<TaskObject>> request = new HttpEntity<>(crashedTasksList, headers);
-
-            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-
-//            System.out.printf("Successfully sent tasks. Response: %s\n", response.getBody());
-        } catch (Exception e) {
-            System.err.printf("Error sending to Server 2: %s\n", e.getMessage());
+            System.err.printf("Error sending to Server1: %s\n", e.getMessage());
         }
     }
 }
