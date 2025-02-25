@@ -56,23 +56,23 @@ public class ConsumerOneController {
 
     @PostMapping("/set-priority-complete-fetch")
     public void setPriorityCompleteFetch(@RequestBody LinkedHashMap<Integer, Long> thresholdTime) {
+        algorithmName = "priority-complete-fetch";
         priorityBasedScheduling.setBlockingQueuePriorityS(kafka_consumer.getBlockingQueuePriorityS());
-        priorityBasedScheduling.priorityBasedScheduling(thresholdTime, "complete-fetch");
+        priorityBasedScheduling.priorityBasedScheduling(thresholdTime, algorithmName);
         completeFetchAlgorithm.executeCATF();
 
-        algorithmName = "priority-complete-fetch";
         kafka_consumer.setSchedulingAlgorithm(algorithmName);
         serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
     }
 
     @PostMapping("/set-priority-load-balancing")
     public void setPriorityLoadBalancing(@RequestBody LinkedHashMap<Integer, Long> thresholdTime) {
+        algorithmName = "priority-load-balancing";
         priorityBasedScheduling.setBlockingQueuePriorityS(kafka_consumer.getBlockingQueuePriorityS());
-        priorityBasedScheduling.priorityBasedScheduling(thresholdTime, "load-balancing");
+        priorityBasedScheduling.priorityBasedScheduling(thresholdTime, algorithmName);
         loadBalancingAlgorithm.wlb_serverInit();
         loadBalancingAlgorithm.weightedLoadBalancing();
 
-        algorithmName = "priority-load-balancing";
         kafka_consumer.setSchedulingAlgorithm(algorithmName);
         serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
     }

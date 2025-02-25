@@ -81,11 +81,6 @@ public class ServerSimulator {
                 if(servers != null){
                     for(ServerObject server : servers.values()){
                         if(server.getQueueServer().isEmpty()){
-                            try {
-                                Thread.sleep(10);
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
                             serversLoad.put(server.getServerId(), server.getQueueServer().size());
                         }
                     }

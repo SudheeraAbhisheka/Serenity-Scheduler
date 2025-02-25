@@ -36,7 +36,7 @@ public class ServerConfigUI {
         heartBeatCheckingField.setPromptText("Heartbeat Checking");
         TextField heartBeatMakingField = new TextField("1000");
         heartBeatMakingField.setPromptText("Heartbeat Making");
-        Button setHeartBeatButton = new Button("Set Heartbeat");
+        Button setHeartBeatButton = new Button("Edit Heartbeat");
 
         TextField noOfServersField = new TextField();
         noOfServersField.setPromptText("Number of Servers");

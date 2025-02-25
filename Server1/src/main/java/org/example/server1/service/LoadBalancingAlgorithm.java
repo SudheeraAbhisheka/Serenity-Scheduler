@@ -47,7 +47,6 @@ public class LoadBalancingAlgorithm {
     private double totalSpeedOfServers;
     private double totalWeightOfTasks;
     private boolean stopTheIteration = false;
-    private boolean waitingForEmptyServer = false;
 
     public LoadBalancingAlgorithm(RestTemplate restTemplate, Kafka_consumer kafka_consumer, ServerControllerEmitter serverControllerEmitter) {
         this.restTemplate = restTemplate;
@@ -88,14 +87,12 @@ public class LoadBalancingAlgorithm {
                     synchronized(lock){
                         try {
                             System.out.println("Waiting for empty server");
-                            waitingForEmptyServer = true;
                             lock.wait();
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         }
                     }
                 }
-                waitingForEmptyServer = false;
                 isEmptyServerAvailable = false;
 
                 if(taskForNextIteration != null){
@@ -160,7 +157,6 @@ public class LoadBalancingAlgorithm {
         executorService.submit(()->{
             long lastlyUnlockedFor = Long.MAX_VALUE;
             long indicator = 0;
-            int waitingIndicator = 0;
 
             while(!Thread.currentThread().isInterrupted()){
                 long currentTime = System.currentTimeMillis();
@@ -208,20 +204,6 @@ public class LoadBalancingAlgorithm {
 
                     }
                 }
-
-/*                if(waitingForEmptyServer){
-                    waitingIndicator++;
-                    if(waitingTime1 * waitingIndicator > waitingTime2){
-                        System.out.println("Hello world");
-                        synchronized(lock){
-                            lock.notify();
-                        }
-
-                        waitingIndicator = 0;
-                    }
-                }else{
-                    waitingIndicator = 0;
-                }*/
 
                 try {
                     Thread.sleep(waitingTime1);

@@ -73,7 +73,7 @@ public class AlgorithmSelectorUI {
         waitTimeField = new TextField();
         waitTimeField.setPromptText("Enter wait time in ms");
 
-        Button setWaitTimeButton = new Button("Set Wait Time");
+        Button setWaitTimeButton = new Button("Edit Wait Time");
         setWaitTimeButton.setOnAction(e -> handleSetWaitTime());
         HBox waitTimeBox = new HBox(10, waitTimeLabel, waitTimeField, setWaitTimeButton);
 

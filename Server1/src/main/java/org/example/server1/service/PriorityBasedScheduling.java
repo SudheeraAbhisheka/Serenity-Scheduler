@@ -32,10 +32,10 @@ public class PriorityBasedScheduling {
         int UNDEFINED = 0;
 
         ConcurrentHashMap<Integer, Queue<ArrivedTimeObject>> queuePriorityX = new ConcurrentHashMap<>();
-        if(completeFetchOrLB.equals("complete-fetch")){
+        if(completeFetchOrLB.equals("priority-complete-fetch")){
             completeFetchAlgorithm.setDynamicBlockingQueue(new LinkedBlockingQueue<>(1));
         }
-        else if(completeFetchOrLB.equals("load-balancing")){
+        else if(completeFetchOrLB.equals("priority-load-balancing")){
             loadBalancingAlgorithm.setWlbQueue(new LinkedBlockingQueue<>());
         }
 
