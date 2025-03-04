@@ -63,7 +63,6 @@ public class MessageService {
     }
 
     public void runTimedHelloWorld(Map<String, Integer> map) {
-        int noOfThreads = map.get("noOfThreads");
         int noOfTasks = map.get("noOfTasks");
         int minWeight = map.get("minWeight");
         int maxWeight = map.get("maxWeight");
@@ -73,40 +72,26 @@ public class MessageService {
         Random random = new Random(12345);
         sendMessageCount.set(0);
 
-        ArrayList<Integer> noOfTasksList = new ArrayList<>();
-        int tasksPerThread = noOfTasks / noOfThreads;
-        int remainder = noOfTasks % noOfThreads;
+        executor.submit(() -> {
+            for (int i = 0; i < noOfTasks; i++) {
+                TaskObject task = new TaskObject(
+                        UUID.randomUUID().toString(),
+                        1 + random.nextInt(10),
+                        minWeight + random.nextInt(maxWeight - minWeight + 1),
+                        false,
+                        minPriority + random.nextInt(maxPriority - minPriority + 1),
+                        System.currentTimeMillis()
+                );
 
-        for (int i = 0; i < noOfThreads; i++) {
-            if (i == noOfThreads - 1) {
-                noOfTasksList.add(tasksPerThread + remainder);
-            } else {
-                noOfTasksList.add(tasksPerThread);
-            }
-        }
+                sendMessage(task);
 
-        for (int tasksPerThreadCorrect : noOfTasksList) {
-            executor.submit(() -> {
-                for (int i = 0; i < tasksPerThreadCorrect; i++) {
-                    TaskObject task = new TaskObject(
-                            UUID.randomUUID().toString(),
-                            1 + random.nextInt(10),
-                            minWeight + random.nextInt(maxWeight - minWeight + 1),
-                            false,
-                            minPriority + random.nextInt(maxPriority - minPriority + 1),
-                            System.currentTimeMillis()
-                    );
-
-                    sendMessage(task);
-
-                    int currentCount = sendMessageCount.incrementAndGet();
-                    if (currentCount == noOfTasks) {
-                        System.out.println("Done");
-                    }
+                int currentCount = sendMessageCount.incrementAndGet();
+                if (currentCount == noOfTasks) {
+                    System.out.println("Done");
                 }
+            }
 
-            });
-        }
+        });
 
 
     }

@@ -49,9 +49,6 @@ public class GeneratingMessagesUI {
         TextField maxPriorityField = new TextField("3");
         maxPriorityField.setPromptText("Enter Max Priority");
 
-        TextField noOfThreadsField = new TextField();
-        noOfThreadsField.setPromptText("Enter No. of Threads");
-
         TextField noOfTasksField = new TextField();
         noOfTasksField.setPromptText("Enter No. of Tasks");
 
@@ -66,7 +63,6 @@ public class GeneratingMessagesUI {
         Button clearButton = new Button("Clear Terminal");
 
         startButton.setOnAction(event -> {
-            int noOfThreads = 0;
             int noOfTasks = 0;
             int minWeight = 0;
             int maxWeight = 0;
@@ -77,7 +73,6 @@ public class GeneratingMessagesUI {
             postRequest("8080/kafka-server/set-broker", selectedBroker);
 
             try {
-                noOfThreads = Integer.parseInt(noOfThreadsField.getText());
                 noOfTasks = Integer.parseInt(noOfTasksField.getText());
                 minWeight = Integer.parseInt(minWeightField.getText());
                 maxWeight = Integer.parseInt(maxWeightField.getText());
@@ -94,7 +89,6 @@ public class GeneratingMessagesUI {
             }
 
             Map<String, Integer> map = new HashMap<>(Map.of(
-                    "noOfThreads", noOfThreads,
                     "noOfTasks", noOfTasks,
                     "minWeight", minWeight,
                     "maxWeight", maxWeight,
@@ -178,9 +172,7 @@ public class GeneratingMessagesUI {
         HBox row2 = new HBox(10);
         row2.setPadding(new Insets(10));
         row2.getChildren().addAll(
-                new Label("Threads:"),
-                noOfThreadsField,
-                new Label("Tasks:"),
+                new Label("No of tasks:"),
                 noOfTasksField,
                 new Label("Message Broker:"),
                 messageBrokerComboBox,

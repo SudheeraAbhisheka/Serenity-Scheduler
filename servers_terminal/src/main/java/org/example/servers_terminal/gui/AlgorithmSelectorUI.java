@@ -90,7 +90,7 @@ public class AlgorithmSelectorUI {
                 algorithmBox,
                 priorityCheckBox,
                 priorityBox,
-                waitTimeBox,
+//                waitTimeBox,
                 setButtonBox,
                 outputArea
         );

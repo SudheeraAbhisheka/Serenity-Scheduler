@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: CassandraInit
+
+  cassandra:
+    contact-points: ${SPRING_CASSANDRA_CONTACT_POINTS:cassandra}
+    port: ${SPRING_CASSANDRA_PORT:9042}
+    local-datacenter: datacenter1
+
+server:
+  port: ${SERVER_PORT:8085}

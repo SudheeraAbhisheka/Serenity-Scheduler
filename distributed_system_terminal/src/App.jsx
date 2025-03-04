@@ -419,32 +419,32 @@ function App() {
                             }}
                         >
                             <thead>
-                            <tr style={{ borderBottom: '2px solid black' }}>
-                                <th style={{ border: '1px solid black', padding: '8px' }}>Key</th>
-                                <th style={{ border: '1px solid black', padding: '8px' }}>Value</th>
-                                <th style={{ border: '1px solid black', padding: '8px' }}>Weight</th>
-                                <th style={{ border: '1px solid black', padding: '8px' }}>Generated At</th>
-                                <th style={{ border: '1px solid black', padding: '8px' }}>Executed</th>
-                                <th style={{ border: '1px solid black', padding: '8px' }}>Priority</th>
-                                <th style={{ border: '1px solid black', padding: '8px' }}>Start of Process</th>
-                                <th style={{ border: '1px solid black', padding: '8px' }}>End of Process</th>
-                                <th style={{ border: '1px solid black', padding: '8px' }}>Server Key</th>
+                            <tr style={{borderBottom: '2px solid black'}}>
+                                <th style={{border: '1px solid black', padding: '8px'}}>Key</th>
+                                <th style={{border: '1px solid black', padding: '8px'}}>Value</th>
+                                <th style={{border: '1px solid black', padding: '8px'}}>Weight</th>
+                                <th style={{border: '1px solid black', padding: '8px'}}>Generated At</th>
+                                <th style={{border: '1px solid black', padding: '8px'}}>Executed</th>
+                                <th style={{border: '1px solid black', padding: '8px'}}>Executed Server</th>
+                                <th style={{border: '1px solid black', padding: '8px'}}>Priority</th>
+                                <th style={{border: '1px solid black', padding: '8px'}}>Start of Process</th>
+                                <th style={{border: '1px solid black', padding: '8px'}}>End of Process</th>
                             </tr>
                             </thead>
                             <tbody>
                             {tasks.map((task) => (
                                 <tr key={task.key}>
-                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.key}</td>
-                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.value}</td>
-                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.weight}</td>
-                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.generatedAt}</td>
-                                    <td style={{ border: '1px solid black', padding: '8px' }}>
+                                    <td style={{border: '1px solid black', padding: '8px'}}>{task.key}</td>
+                                    <td style={{border: '1px solid black', padding: '8px'}}>{task.value}</td>
+                                    <td style={{border: '1px solid black', padding: '8px'}}>{task.weight}</td>
+                                    <td style={{border: '1px solid black', padding: '8px'}}>{task.generatedAt}</td>
+                                    <td style={{border: '1px solid black', padding: '8px'}}>
                                         {task.executed ? 'Yes' : 'No'}
                                     </td>
-                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.priority}</td>
-                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.startOfProcessAt}</td>
-                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.endOfProcessAt}</td>
-                                    <td style={{ border: '1px solid black', padding: '8px' }}>{task.serverKey}</td>
+                                    <td style={{border: '1px solid black', padding: '8px'}}>{task.serverKey}</td>
+                                    <td style={{border: '1px solid black', padding: '8px'}}>{task.priority}</td>
+                                    <td style={{border: '1px solid black', padding: '8px'}}>{task.startOfProcessAt}</td>
+                                    <td style={{border: '1px solid black', padding: '8px'}}>{task.endOfProcessAt}</td>
                                 </tr>
                             ))}
                             </tbody>

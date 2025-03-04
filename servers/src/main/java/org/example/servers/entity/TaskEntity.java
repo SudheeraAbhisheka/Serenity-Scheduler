@@ -5,9 +5,6 @@ import org.springframework.data.cassandra.core.mapping.PrimaryKey;
 import org.springframework.data.cassandra.core.mapping.Table;
 import lombok.Data;
 
-/**
- * This is our Cassandra table equivalent of KeyValueObject.
- */
 @Table("tasks") // The table name in Cassandra
 @Data
 public class TaskEntity {
