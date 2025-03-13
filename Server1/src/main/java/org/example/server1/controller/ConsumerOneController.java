@@ -22,6 +22,11 @@ public class ConsumerOneController {
     private String algorithmName;
     private final ServerControllerEmitter serverControllerEmitter;
 
+    private static final String COMPLETE_AND_THEN_FETCH = "complete-and-then-fetch";
+    private static final String WEIGHT_LOAD_BALANCING = "weight-load-balancing";
+    private static final String PRIORITY_COMPLETE_FETCH = "priority-complete-fetch";
+    private static final String PRIORITY_LOAD_BALANCING = "priority-load-balancing";
+
     @Autowired
     public ConsumerOneController(CompleteFetchAlgorithm completeFetchAlgorithm, Kafka_consumer kafka_consumer,
                                  LoadBalancingAlgorithm loadBalancingAlgorithm, ServerControllerEmitter serverControllerEmitter,
@@ -36,9 +41,10 @@ public class ConsumerOneController {
     @PostMapping("/set-complete-and-fetch")
     public void setCompleteAndFetch() {
         completeFetchAlgorithm.setDynamicBlockingQueue(kafka_consumer.getBlockingQueueCompleteF());
+        completeFetchAlgorithm.getRunningServers().clear();
         completeFetchAlgorithm.executeCATF();
 
-        algorithmName = "complete-and-then-fetch";
+        algorithmName = COMPLETE_AND_THEN_FETCH;
         kafka_consumer.setSchedulingAlgorithm(algorithmName);
         serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
     }
@@ -46,20 +52,23 @@ public class ConsumerOneController {
     @PostMapping("/set-load-balancing")
     public void setLoadBalancing() {
         loadBalancingAlgorithm.setWlbQueue(kafka_consumer.getWlbQueue());
+        loadBalancingAlgorithm.getRunningServers().clear();
         loadBalancingAlgorithm.wlb_serverInit();
         loadBalancingAlgorithm.weightedLoadBalancing();
 
-        algorithmName = "weight-load-balancing";
+        algorithmName = WEIGHT_LOAD_BALANCING;
         kafka_consumer.setSchedulingAlgorithm(algorithmName);
         serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
     }
 
     @PostMapping("/set-priority-complete-fetch")
     public void setPriorityCompleteFetch(@RequestBody LinkedHashMap<Integer, Long> thresholdTime) {
-        algorithmName = "priority-complete-fetch";
+        algorithmName = PRIORITY_COMPLETE_FETCH;
         priorityBasedScheduling.setBlockingQueuePriorityS(kafka_consumer.getBlockingQueuePriorityS());
         priorityBasedScheduling.priorityBasedScheduling(thresholdTime, algorithmName);
+        completeFetchAlgorithm.getRunningServers().clear();
         completeFetchAlgorithm.executeCATF();
+        setEmptyServer("");
 
         kafka_consumer.setSchedulingAlgorithm(algorithmName);
         serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
@@ -67,21 +76,17 @@ public class ConsumerOneController {
 
     @PostMapping("/set-priority-load-balancing")
     public void setPriorityLoadBalancing(@RequestBody LinkedHashMap<Integer, Long> thresholdTime) {
-        algorithmName = "priority-load-balancing";
+        algorithmName = PRIORITY_LOAD_BALANCING;
         priorityBasedScheduling.setBlockingQueuePriorityS(kafka_consumer.getBlockingQueuePriorityS());
         priorityBasedScheduling.priorityBasedScheduling(thresholdTime, algorithmName);
+        loadBalancingAlgorithm.getRunningServers().clear();
         loadBalancingAlgorithm.wlb_serverInit();
         loadBalancingAlgorithm.weightedLoadBalancing();
+        setEmptyServer("");
 
         kafka_consumer.setSchedulingAlgorithm(algorithmName);
         serverControllerEmitter.sendUpdate("Scheduling algorithm: " + algorithmName);
     }
-
-//    @PostMapping("/update-load-balancing-wait-times")
-//    public void updateLoadBalancingWaitTimes(@RequestBody LinkedHashMap<String, Long> waitTimes) {
-//        loadBalancingAlgorithm.setWaitingTime1(waitTimes.get("waitTime1"));
-//        loadBalancingAlgorithm.setWaitingTime2(waitTimes.get("waitTime2"));
-//    }
 
     @PostMapping("/update-wait-time")
     public void updateLoadBalancingWaitTime(@RequestBody Long waitTime) {
@@ -95,7 +100,7 @@ public class ConsumerOneController {
             completeFetchAlgorithm.executeCATF();
         }
         if(loadBalancingAlgorithm.getWlbQueue() != null){
-           loadBalancingAlgorithm.wlb_serverInit();
+            loadBalancingAlgorithm.wlb_serverInit();
         }
     }
 
@@ -108,13 +113,12 @@ public class ConsumerOneController {
         }
     }
 
-
     @PostMapping("/crashed-tasks")
     public void addCrashedTasks(@RequestParam Integer serverId, @RequestBody List<TaskObject> crashedTasks) throws InterruptedException {
-        if(algorithmName.equals("complete-and-then-fetch") || algorithmName.equals("priority-complete-fetch")){
+        if(algorithmName.equals(COMPLETE_AND_THEN_FETCH) || algorithmName.equals(PRIORITY_COMPLETE_FETCH)){
             completeFetchAlgorithm.terminateServer(Integer.toString(serverId), crashedTasks, algorithmName);
         }
-        else if(algorithmName.equals("weight-load-balancing") || algorithmName.equals("priority-load-balancing")){
+        else if(algorithmName.equals(WEIGHT_LOAD_BALANCING) || algorithmName.equals(PRIORITY_LOAD_BALANCING)){
             loadBalancingAlgorithm.terminateServer(Integer.toString(serverId), crashedTasks, algorithmName);
         }
     }

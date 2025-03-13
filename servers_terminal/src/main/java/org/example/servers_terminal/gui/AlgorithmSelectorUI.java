@@ -40,8 +40,8 @@ public class AlgorithmSelectorUI {
     private void createUI() {
         Label algorithmLabel = new Label("Select Algorithm:");
         algorithmComboBox = new ComboBox<>();
-        algorithmComboBox.getItems().addAll("Complete and then fetch", "Load balancing");
-        algorithmComboBox.setValue("Complete and then fetch");
+        algorithmComboBox.getItems().addAll("Load balancing", "Complete and then fetch");
+        algorithmComboBox.setValue("Load balancing");
 
         HBox algorithmBox = new HBox(10, algorithmLabel, algorithmComboBox);
 

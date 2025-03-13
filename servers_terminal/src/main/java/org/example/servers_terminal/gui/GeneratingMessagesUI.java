@@ -96,11 +96,13 @@ public class GeneratingMessagesUI {
                     "maxPriority", maxPriority)
             );
 
-            postRequest("8084/api/set-no-of-tasks", noOfTasks);
+
             boolean tasksSet = postRequest("8080/kafka-server/set-message", map);
             if (tasksSet) {
+                postRequest("8084/api/set-no-of-tasks", noOfTasks);
                 outputArea.appendText("Successfully set number of tasks: " + noOfTasks
                         + ", message broker: " + selectedBroker + "\n");
+
             } else {
                 outputArea.appendText("Failed to set number of tasks: " + noOfTasks + "\n");
             }
@@ -144,9 +146,10 @@ public class GeneratingMessagesUI {
             );
 
             int noOfTasks = (executionDuration * 1000) / scheduleRate;
-            postRequest("8084/api/set-no-of-tasks", noOfTasks);
             boolean tasksSet = postRequest("8080/kafka-server/set-message-scheduled", scheduledMap);
+
             if (tasksSet) {
+                postRequest("8084/api/set-no-of-tasks", noOfTasks);
                 outputArea.appendText("Successfully set number of tasks: " + noOfTasks
                         + ", message broker: " + selectedBroker + "\n");
             } else {

@@ -69,7 +69,7 @@ public class LoadBalancingAlgorithm {
 
         for (String serverId : servers.keySet()) {
             if(!runningServers.containsKey(serverId)){
-                System.out.println(serverId + " started");
+//                System.out.println(serverId + " started");
                 queuesForServers.put(serverId, new LinkedBlockingQueue<>());
                 Future<?> future = executorService.submit(() -> { sendToServers(serverId, queuesForServers.get(serverId));});
                 serverTaskMap.put(serverId, future);
@@ -93,6 +93,7 @@ public class LoadBalancingAlgorithm {
                         }
                     }
                 }
+
                 isEmptyServerAvailable = false;
 
                 if(taskForNextIteration != null){
@@ -119,9 +120,9 @@ public class LoadBalancingAlgorithm {
                     try {
                         if(thread2_running){
                             synchronized (secondLock){
-                                System.out.println("locking..");
+                                System.out.println("thread2_running..");
                                 secondLock.wait();
-                                System.out.println("unlocking....");
+                                System.out.println("thread2_stopping....");
                             }
                         }
 
@@ -146,7 +147,7 @@ public class LoadBalancingAlgorithm {
                 if(!tasks.isEmpty()){
                     thread1_running = true;
                     weightLoadBalancing(tasks, servers);
-                    System.out.println("tasks size 1(after): " + tasks.size());
+//                    System.out.println("tasks size 1(after): " + tasks.size());
                     tasks.clear();
                     thread1_running = false;
                 }
@@ -167,7 +168,7 @@ public class LoadBalancingAlgorithm {
                         if (!tasks.isEmpty() && !thread1_running) {
                             thread2_running = true;
                             weightLoadBalancing(tasks, servers);
-                            System.out.println("tasks size 2(after): " + tasks.size());
+//                            System.out.println("tasks size 2(after): " + tasks.size());
                             tasks.clear();
                             stopTheIteration = true;
                             thread2_running = false;
@@ -184,13 +185,13 @@ public class LoadBalancingAlgorithm {
 
                     double totalTimeTakes = totalWeightOfTasks/totalSpeedOfServers;
 
-                    System.out.println("total time: " + totalTimeTakes);
+//                    System.out.println("total time: " + totalTimeTakes);
 
                     if(totalTimeTakes > 1 || waitingTime1 * indicator > waitingTime2){
                         if (!tasks.isEmpty() && !thread1_running) {
                             thread2_running = true;
                             weightLoadBalancing(tasks, servers);
-                            System.out.println("tasks size 3(after): " + tasks.size());
+//                            System.out.println("tasks size 3(after): " + tasks.size());
                             tasks.clear();
                             stopTheIteration = true;
                             thread2_running = false;
@@ -300,17 +301,17 @@ public class LoadBalancingAlgorithm {
             crashedTasks.add(
                     currentWorkingTask.remove(serverId)
             );
-            System.out.println("current working task: "+ 1);
+//            System.out.println("current working task: "+ 1);
         }
 
-        System.out.println("crashed tasks: " + crashedTasks.size());
+//        System.out.println("crashed tasks: " + crashedTasks.size());
         if(currentWorkingTasks.containsKey(serverId)){
-            System.out.println("current working tasks: "+ currentWorkingTasks.get(serverId).size());
+//            System.out.println("current working tasks: "+ currentWorkingTasks.get(serverId).size());
 //            crashedTasks.addAll(currentWorkingTasks.get(serverId));
         }
 
         if(queuesForServers.containsKey(serverId)){
-            System.out.println("queues for server: "+ queuesForServers.get(serverId).size());
+//            System.out.println("queues for server: "+ queuesForServers.get(serverId).size());
             BlockingQueue<TaskObject> queue = queuesForServers.get(serverId);
             crashedTasks.addAll(queue);
         }

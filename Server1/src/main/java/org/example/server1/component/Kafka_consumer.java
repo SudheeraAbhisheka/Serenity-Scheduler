@@ -32,6 +32,12 @@ public class Kafka_consumer {
     private final Object lock = new Object();
     ObjectMapper objectMapper = new ObjectMapper();
 
+    // Static final constants for algorithm names
+    private static final String COMPLETE_AND_THEN_FETCH = "complete-and-then-fetch";
+    private static final String WEIGHT_LOAD_BALANCING = "weight-load-balancing";
+    private static final String PRIORITY_COMPLETE_FETCH = "priority-complete-fetch";
+    private static final String PRIORITY_LOAD_BALANCING = "priority-load-balancing";
+
     @KafkaListener(topics = "topic_1-10", groupId = "my-group")
     public void listen_1to10(String message) throws InterruptedException, JsonProcessingException {
         selectingAlgorithm(objectMapper.readValue(message, TaskObject.class));
@@ -51,21 +57,21 @@ public class Kafka_consumer {
         }
 
         switch(schedulingAlgorithm){
-            case "complete-and-then-fetch":
+            case COMPLETE_AND_THEN_FETCH:
                 blockingQueueCompleteF.put(task);
                 break;
 
-            case "weight-load-balancing" :
+            case WEIGHT_LOAD_BALANCING:
                 wlbQueue.add(task);
                 break;
 
-            case "priority-complete-fetch", "priority-load-balancing":
+            case PRIORITY_COMPLETE_FETCH:
+            case PRIORITY_LOAD_BALANCING:
                 blockingQueuePriorityS.add(task);
                 break;
 
             default:
                 throw new IllegalArgumentException("Unsupported algorithm: " + schedulingAlgorithm);
-
         }
     }
 

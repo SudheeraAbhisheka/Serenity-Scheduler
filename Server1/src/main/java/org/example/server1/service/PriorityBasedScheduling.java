@@ -19,8 +19,9 @@ public class PriorityBasedScheduling {
     volatile long waitingTime1 = 500;
     @Setter
     volatile long waitingTime2 = 10000;
-    private OldObject oldObject;
     long maxAge = 0;
+    private static final String PRIORITY_COMPLETE_FETCH = "priority-complete-fetch";
+    private static final String PRIORITY_LOAD_BALANCING = "priority-load-balancing";
 
     public PriorityBasedScheduling(CompleteFetchAlgorithm schedulingAlgorithm, LoadBalancingAlgorithm loadBalancingAlgorithm){
         this.completeFetchAlgorithm = schedulingAlgorithm;
@@ -32,10 +33,10 @@ public class PriorityBasedScheduling {
         int UNDEFINED = 0;
 
         ConcurrentHashMap<Integer, Queue<ArrivedTimeObject>> queuePriorityX = new ConcurrentHashMap<>();
-        if(completeFetchOrLB.equals("priority-complete-fetch")){
+        if(completeFetchOrLB.equals(PRIORITY_COMPLETE_FETCH)){
             completeFetchAlgorithm.setDynamicBlockingQueue(new LinkedBlockingQueue<>(1));
         }
-        else if(completeFetchOrLB.equals("priority-load-balancing")){
+        else if(completeFetchOrLB.equals(PRIORITY_LOAD_BALANCING)){
             loadBalancingAlgorithm.setWlbQueue(new LinkedBlockingQueue<>());
         }
 
@@ -104,12 +105,12 @@ public class PriorityBasedScheduling {
                     if(oldest != 0){
                         oldestTask = queuePriorityX.get(priorityOfOldest).poll().getTaskObject();
 
-                        System.out.println("old task: " + oldestTask.getPriority());
+//                        System.out.println("old task: " + oldestTask.getPriority());
 
-                        if(completeFetchOrLB.equals("complete-fetch")){
+                        if(completeFetchOrLB.equals(PRIORITY_COMPLETE_FETCH)){
                             completeFetchAlgorithm.getDynamicBlockingQueue().put(oldestTask);
                         }
-                        else if(completeFetchOrLB.equals("load-balancing")){
+                        else if(completeFetchOrLB.equals(PRIORITY_LOAD_BALANCING)){
                             loadBalancingAlgorithm.getWlbQueue().put(oldestTask);
                         }
                     }
@@ -120,10 +121,12 @@ public class PriorityBasedScheduling {
                             if(!priorityQueue.isEmpty()){
                                 TaskObject task = priorityQueue.poll().getTaskObject();
 
-                                if(completeFetchOrLB.equals("complete-fetch")){
+//                                System.out.println(task.getKey());
+
+                                if(completeFetchOrLB.equals(PRIORITY_COMPLETE_FETCH)){
                                     completeFetchAlgorithm.getDynamicBlockingQueue().put(task);
                                 }
-                                else if(completeFetchOrLB.equals("load-balancing")){
+                                else if(completeFetchOrLB.equals(PRIORITY_LOAD_BALANCING)){
                                     loadBalancingAlgorithm.getWlbQueue().put(task);
                                 }
                                 priorityQueuesAreEmpty = false;
@@ -135,7 +138,7 @@ public class PriorityBasedScheduling {
                         if(priorityQueuesAreEmpty){
                             synchronized (lock) {
                                 try {
-                                    System.out.println("locking...");
+//                                    System.out.println("locking...");
                                     waitingThreads = true;
                                     lock.wait();
                                 } catch (InterruptedException e) {
@@ -164,7 +167,7 @@ public class PriorityBasedScheduling {
                 if(timeDifferance >= waitingTime1){
                     if (waitingThreads && arrivedTime != lastlyUnlockedFor) {
                         synchronized (lock) {
-                            System.out.println("unlocking...");
+//                            System.out.println("unlocking...");
                             lock.notify();
                             lastlyUnlockedFor = arrivedTime;
                             indicator = 0;

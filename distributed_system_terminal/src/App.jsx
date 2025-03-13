@@ -34,7 +34,7 @@ function App() {
         const es8083 = new EventSource(sseUrl8083);
 
         es8083.addEventListener('update', (event) => {
-            setMessages8083((prev) => [...prev, event.data]);
+            setMessages8083([event.data]);
         });
 
         es8083.onerror = (err) => {
@@ -354,10 +354,13 @@ function App() {
                 >
                     <h3>Message from algorithm schedular</h3>
                     <ul>
-                        {messages8083.map((msg, index) => (
-                            <li key={index}>{msg}</li>
-                        ))}
+                        {messages8083.length > 0 ? (
+                            <li>{messages8083[0]}</li>
+                        ) : (
+                            <li>No messages yet.</li>
+                        )}
                     </ul>
+
                 </div>
             </div>
             <div
