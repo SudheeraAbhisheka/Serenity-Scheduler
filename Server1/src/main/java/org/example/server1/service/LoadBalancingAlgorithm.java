@@ -260,12 +260,12 @@ public class LoadBalancingAlgorithm {
         }
     }
 
-    private void sendToServers(String serverId, BlockingQueue<TaskObject> wlb_serverQueue) {
+    private void sendToServers(String serverId, BlockingQueue<TaskObject> queuesForServers) {
         while (!Thread.currentThread().isInterrupted()) {
             TaskObject taskObject;
 
             try {
-                taskObject = wlb_serverQueue.take();
+                taskObject = queuesForServers.take();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }

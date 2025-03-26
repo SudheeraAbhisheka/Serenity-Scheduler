@@ -105,8 +105,6 @@ public class PriorityBasedScheduling {
                     if(oldest != 0){
                         oldestTask = queuePriorityX.get(priorityOfOldest).poll().getTaskObject();
 
-//                        System.out.println("old task: " + oldestTask.getPriority());
-
                         if(completeFetchOrLB.equals(PRIORITY_COMPLETE_FETCH)){
                             completeFetchAlgorithm.getDynamicBlockingQueue().put(oldestTask);
                         }
@@ -120,8 +118,6 @@ public class PriorityBasedScheduling {
                         for(Queue<ArrivedTimeObject> priorityQueue : queuePriorityX.values()){
                             if(!priorityQueue.isEmpty()){
                                 TaskObject task = priorityQueue.poll().getTaskObject();
-
-//                                System.out.println(task.getKey());
 
                                 if(completeFetchOrLB.equals(PRIORITY_COMPLETE_FETCH)){
                                     completeFetchAlgorithm.getDynamicBlockingQueue().put(task);
@@ -138,7 +134,6 @@ public class PriorityBasedScheduling {
                         if(priorityQueuesAreEmpty){
                             synchronized (lock) {
                                 try {
-//                                    System.out.println("locking...");
                                     waitingThreads = true;
                                     lock.wait();
                                 } catch (InterruptedException e) {
@@ -167,7 +162,6 @@ public class PriorityBasedScheduling {
                 if(timeDifferance >= waitingTime1){
                     if (waitingThreads && arrivedTime != lastlyUnlockedFor) {
                         synchronized (lock) {
-//                            System.out.println("unlocking...");
                             lock.notify();
                             lastlyUnlockedFor = arrivedTime;
                             indicator = 0;
@@ -177,7 +171,6 @@ public class PriorityBasedScheduling {
                     indicator++;
 
                     if(waitingTime1 * indicator > waitingTime2){
-                        System.out.println("caught you");
                         if (waitingThreads) {
                             synchronized (lock) {
                                 lock.notify();

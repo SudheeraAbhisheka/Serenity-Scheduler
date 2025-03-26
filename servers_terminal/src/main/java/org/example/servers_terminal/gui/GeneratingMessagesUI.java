@@ -53,10 +53,10 @@ public class GeneratingMessagesUI {
         noOfTasksField.setPromptText("Enter No. of Tasks");
 
         TextField scheduleRateField = new TextField();
-        scheduleRateField.setPromptText("Enter Schedule Rate");
+        scheduleRateField.setPromptText("Delay Between Task");
 
         TextField executionDurationField = new TextField();
-        executionDurationField.setPromptText("Enter Execution Duration");
+        executionDurationField.setPromptText("Total Run Time");
 
         Button startButton = new Button("Start");
         Button scheduleButton = new Button("Set schedule");
@@ -185,9 +185,9 @@ public class GeneratingMessagesUI {
         HBox row3 = new HBox(10);
         row3.setPadding(new Insets(10));
         row3.getChildren().addAll(
-                new Label("Schedule Rate(mills):"),
+                new Label("Delay Between Tasks (ms):"),
                 scheduleRateField,
-                new Label("Execution Duration(s):"),
+                new Label("Total Run Time (s):"),
                 executionDurationField,
                 scheduleButton,
                 clearButton

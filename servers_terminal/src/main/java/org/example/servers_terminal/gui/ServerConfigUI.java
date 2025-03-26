@@ -41,7 +41,7 @@ public class ServerConfigUI {
         TextField noOfServersField = new TextField();
         noOfServersField.setPromptText("Number of Servers");
         TextField serverSpeedsField = new TextField();
-        serverSpeedsField.setPromptText("Server Speeds");
+        serverSpeedsField.setPromptText("Weights per second");
         TextField serverQueueCapsField = new TextField();
         serverQueueCapsField.setPromptText("Server Queue Capacities");
 
