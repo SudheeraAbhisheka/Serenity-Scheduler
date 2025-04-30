@@ -227,6 +227,29 @@
       <p>Complete and then fetch algorithm passes tasks to the server if there are available spaces in server queues. This algorithm generates a similar number of threads to the servers. Tasks distribution is handled by each of these threads separately.</p>
       <img src="diagrams/complete_and_fetch.png" alt="Introduction UML Diagram" style="max-width:100%; height:auto; margin-bottom:1rem;">
 
+      <details>
+        <summary>Source code</summary>
+        <figure class="code-frame" data-title="CompleteFetchAlgorithm.java">
+          <pre class="line-numbers"><code id="java-code" class="language-java"></code></pre>
+        </figure>
+      </details>
+      
+      <script>
+        document.addEventListener('DOMContentLoaded', () => {
+          fetch('snippets/CompleteFetchAlgorithm.java')
+            .then(res => {
+              if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
+              return res.text();
+            })
+            .then(text => {
+              const codeEl = document.getElementById('java-code');
+              codeEl.textContent = text;
+              if (window.Prism) Prism.highlightElement(codeEl);
+            })
+            .catch(err => console.error(err));
+        });
+      </script>
+
       <h3>Load balancing</h3>
 
       <p>Load balancing goes through the servers and assigns each task to get the almost shortest finishing time.</p>
@@ -234,24 +257,26 @@
       <img src="diagrams/load_balancing.png" alt="Introduction UML Diagram" style="max-width:100%; height:auto; margin-bottom:1rem;">
 
       <details>
-        <summary>Show Java Implementation</summary>
-        <pre><code id="java-code" class="language-java"></code></pre>
+        <summary>Source code</summary>
+        <figure class="code-frame" data-title="LoadBalancingAlgorithm.java">
+          <pre class="line-numbers"><code id="java-code" class="language-java"></code></pre>
+        </figure>
       </details>
       
       <script>
-        // assuming DijkstraAlgorithm.java is next to this file in your GitHub Pages site
-        fetch('snippets/LoadBalancingAlgorithm.java')
-          .then(res => {
-            if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
-            return res.text();
-          })
-          .then(text => {
-            const el = document.getElementById('java-code');
-            el.textContent = text;
-            // if using Prism.js:
-            // Prism.highlightElement(el);
-          })
-          .catch(err => console.error(err));
+        document.addEventListener('DOMContentLoaded', () => {
+          fetch('snippets/LoadBalancingAlgorithm.java')
+            .then(res => {
+              if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
+              return res.text();
+            })
+            .then(text => {
+              const codeEl = document.getElementById('java-code');
+              codeEl.textContent = text;
+              if (window.Prism) Prism.highlightElement(codeEl);
+            })
+            .catch(err => console.error(err));
+        });
       </script>
 
       <h4>Mechanism</h4>
@@ -280,14 +305,14 @@
 
       <details>
         <summary>Source code</summary>
-        <figure class="code-frame" data-title="LoadBalancingAlgorithm.java">
+        <figure class="code-frame" data-title="PriorityBasedScheduling.java">
           <pre class="line-numbers"><code id="java-code" class="language-java"></code></pre>
         </figure>
       </details>
       
       <script>
         document.addEventListener('DOMContentLoaded', () => {
-          fetch('snippets/LoadBalancingAlgorithm.java')
+          fetch('snippets/PriorityBasedScheduling.java')
             .then(res => {
               if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
               return res.text();
