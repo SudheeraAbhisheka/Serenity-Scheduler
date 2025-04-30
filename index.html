@@ -245,24 +245,69 @@
       </object>
       </code></pre> -->
 
+      <!-- 1. Prism core + Java language -->
+<link
+rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css"
+/>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-java.min.js"></script>
+
+<!-- 2. Line numbers plugin -->
+<link
+rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.css"
+/>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+
+<!-- 3. Custom styling to make the code block pop -->
+<style>
+pre[class*="language-"] {
+  background: #2d2d2d;
+  color: #f8f8f2;
+  padding: 1em;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+/* optional: caption above the block */
+.code-frame {
+  position: relative;
+  margin: 2rem 0;
+}
+.code-frame::before {
+  content: attr(data-title);
+  position: absolute;
+  top: -1.6em;
+  left: 0.5em;
+  font-size: 0.85rem;
+  color: #999;
+}
+</style>
+
       <details>
-        <summary>Show Java Implementation</summary>
-        <pre><code id="java-code" class="language-java"></code></pre>
+        <summary>Source code</summary>
+        <figure class="code-frame" data-title="LoadBalancingAlgorithm.java">
+          <pre class="line-numbers"><code id="java-code" class="language-java"></code></pre>
+        </figure>
       </details>
       
       <script>
-        // Immediately fetch the .java file and dump it into the <code> block
-        fetch('./DijkstraAlgorithm.java')
-          .then(res => {
-            if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
-            return res.text();
-          })
-          .then(text => {
-            document.getElementById('java-code').textContent = text;
-            // If you’re using Prism.js or Highlight.js, you can re-highlight here:
-            // Prism.highlightElement(document.getElementById('java-code'));
-          })
-          .catch(console.error);
+        document.addEventListener('DOMContentLoaded', () => {
+          fetch('/snippets/LoadBalancingAlgorithm.java')
+            .then(res => {
+              if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
+              return res.text();
+            })
+            .then(text => {
+              const codeEl = document.getElementById('java-code');
+              codeEl.textContent = text;
+              if (window.Prism) Prism.highlightElement(codeEl);
+            })
+            .catch(err => console.error(err));
+        });
       </script>
 
       <h4>Mechanism</h4>
