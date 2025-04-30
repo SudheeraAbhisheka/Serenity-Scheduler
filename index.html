@@ -6,6 +6,12 @@
   
     <!-- ==== EXISTING STYLES ==== -->
     <style>
+      .tab-button.active {
+        background: #fff;        /* or whatever “selected” background you like */
+        border-bottom: 2px solid #007acc;
+        font-weight: bold;
+      }
+
       body {
         font-family: Arial, sans-serif;
         margin: 1rem;
@@ -93,7 +99,7 @@
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
   
     <!-- ==== EXISTING SCRIPT FOR TABS ==== -->
-    <script>
+    <!-- <script>
       function openTab(tabId) {
         const allContent = document.getElementsByClassName("tabcontent");
         for (let i = 0; i < allContent.length; i++) {
@@ -101,7 +107,30 @@
         }
         document.getElementById(tabId).classList.add("active");
       }
-    </script>
+    </script> -->
+
+  <script>
+    function openTab(event, tabId) {
+      // 1) hide all tab contents
+      document.querySelectorAll(".tabcontent").forEach(c => c.classList.remove("active"));
+
+      // 2) show the one we want
+      document.getElementById(tabId).classList.add("active");
+
+      // 3) remove .active from all buttons
+      document.querySelectorAll(".tab-button").forEach(btn => btn.classList.remove("active"));
+
+      // 4) add .active to the clicked button
+      event.currentTarget.classList.add("active");
+    }
+
+    // Optional: on page‐load, highlight the first button
+    document.addEventListener("DOMContentLoaded", () => {
+      const firstBtn = document.querySelector(".tab-button");
+      if (firstBtn) firstBtn.classList.add("active");
+    });
+  </script>
+
   </head>
 <body>
 
@@ -115,10 +144,22 @@
   </p>
 
   <div class="tab-buttons">
-    <button class="tab-button" onclick="openTab('tab1')">1 - Introduction</button>
-    <button class="tab-button" onclick="openTab('tab2')">2 - Scheduling Algorithms</button>
-    <button class="tab-button" onclick="openTab('tab3')">3 - Multi-Server Simulator</button>
-    <button class="tab-button" onclick="openTab('tab4')">4 - Controller &amp; Dashboard</button>
+    <button class="tab-button"
+            onclick="openTab(event,'tab1')">
+      1 – Introduction
+    </button>
+    <button class="tab-button"
+            onclick="openTab(event,'tab2')">
+      2 – Scheduling Algorithms
+    </button>
+    <button class="tab-button"
+            onclick="openTab(event,'tab3')">
+      3 – Multi-Server Simulator
+    </button>
+    <button class="tab-button"
+            onclick="openTab(event,'tab4')">
+      4 – Controller & Dashboard
+    </button>
   </div>
 
   <!-- Tab 1 - Introduction -->
@@ -127,13 +168,28 @@
       <h2>Introduction</h2>
       <!-- New section for YouTube links -->
       <h3>Installation &amp; Intro Videos</h3>
-      <ul>
-        <li><a href="https://youtu.be/aRT8kwwgOWg" target="_blank">Installation Guide</a></li>
-        <li><a href="https://youtu.be/EAgC6nR5uiU" target="_blank">Intro</a></li>
+      <ul style="list-style: none; padding: 0; margin: 0; display: flex; gap: 1em;">
+        <li>
+          <a href="https://youtu.be/EAgC6nR5uiU" target="_blank">
+            <img src="https://img.youtube.com/vi/EAgC6nR5uiU/hqdefault.jpg"
+                 alt="Intro thumbnail"
+                 style="width:240px; height:auto; display:block; margin-bottom:0.5em;">
+            Intro
+          </a>
+        </li>
+        <li>
+          <a href="https://youtu.be/aRT8kwwgOWg" target="_blank">
+            <img src="https://img.youtube.com/vi/aRT8kwwgOWg/hqdefault.jpg"
+                 alt="Installation Guide thumbnail"
+                 style="width:240px; height:auto; display:block; margin-bottom:0.5em;">
+            Installation Guide
+          </a>
+        </li>
       </ul>
+
+      <h3>System Architecture of the Entire Project</h3>
       <figure>
         <img src="diagrams/Introduction.png" alt="Introduction UML Diagram" style="max-width:100%; height:auto; margin-bottom:1rem;">
-        <figcaption><em>System Architecture of the Entire Project</em></figcaption>
       </figure>
       <h3>What this system does</h3>
       <ul>
@@ -369,6 +425,29 @@
         <li>tasks currently in between the scheduler and server</li>
       </ul>
       <p>get recovered.</p>
+
+      <details>
+        <summary>Source code</summary>
+        <figure class="code-frame" data-title="ServerSimulator.java">
+          <pre class="line-numbers"><code id="server-simulator" class="language-java"></code></pre>
+        </figure>
+      </details>
+      
+      <script>
+        document.addEventListener('DOMContentLoaded', () => {
+          fetch('snippets/CompleteFetchAlgorithm.java')
+            .then(res => {
+              if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
+              return res.text();
+            })
+            .then(text => {
+              const codeEl = document.getElementById('server-simulator');
+              codeEl.textContent = text;
+              if (window.Prism) Prism.highlightElement(codeEl);
+            })
+            .catch(err => console.error(err));
+        });
+      </script>
 
       <h4>Identifying new servers automatically</h4>
       <p>When a new server is added, the server scheduler gets notified automatically.</p>
