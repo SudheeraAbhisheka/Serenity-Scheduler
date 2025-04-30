@@ -185,7 +185,25 @@
       <h3>Load balancing</h3>
 
       <p>Load balancing goes through the servers and assigns each task to get the almost shortest finishing time.</p>
+
       <img src="diagrams/load_balancing.png" alt="Introduction UML Diagram" style="max-width:100%; height:auto; margin-bottom:1rem;">
+
+      <p><em>Source code</em></p>
+      
+      <pre><code class="language-java">
+        <object
+        data="snippets/LoadBalancingAlgorithm.java"
+        type="text/plain"
+        style="display: block;
+                width: 80%;
+                height: 400px;
+                padding: 1em;
+                background: #f8f8f8;
+                border: 1px solid #ddd;
+                white-space: pre;
+                overflow: auto;">
+      </object>
+      </code></pre>
 
       <h4>Mechanism</h4>
       <ul>
@@ -210,6 +228,42 @@
       <p>There is a threshold time for each priority to stop the starvation (Lower priorities remain without execution because of the continuous execution of higher priorities). Priority scheduling can be used with load balancing and complete-fetch algorithms. At the startup of the service, threshold times need to be assigned.</p>
 
       <img src="diagrams/priority_based_scheduling.png" alt="Introduction UML Diagram" style="max-width:100%; height:auto; margin-bottom:1rem;">
+
+      <!-- <p><em>Source code</em></p>
+      <pre><code class="language-java">
+        <object
+        data="snippets/PriorityBasedScheduling.java"
+        type="text/plain"
+        style="display: block;
+                width: 80%;
+                height: 400px;
+                padding: 1em;
+                background: #f8f8f8;
+                border: 1px solid #ddd;
+                white-space: pre;
+                overflow: auto;">
+      </object>
+      </code></pre> -->
+
+      <details>
+        <summary>Show Java Implementation</summary>
+        <pre><code id="java-code" class="language-java"></code></pre>
+      </details>
+      
+      <script>
+        // Immediately fetch the .java file and dump it into the <code> block
+        fetch('./DijkstraAlgorithm.java')
+          .then(res => {
+            if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
+            return res.text();
+          })
+          .then(text => {
+            document.getElementById('java-code').textContent = text;
+            // If you’re using Prism.js or Highlight.js, you can re-highlight here:
+            // Prism.highlightElement(document.getElementById('java-code'));
+          })
+          .catch(console.error);
+      </script>
 
       <h4>Mechanism</h4>
       <p>Includes:</p>
