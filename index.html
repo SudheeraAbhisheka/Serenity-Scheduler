@@ -296,7 +296,7 @@ pre[class*="language-"] {
       
       <script>
         document.addEventListener('DOMContentLoaded', () => {
-          fetch('/snippets/LoadBalancingAlgorithm.java')
+          fetch('snippets/LoadBalancingAlgorithm.java')
             .then(res => {
               if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
               return res.text();
