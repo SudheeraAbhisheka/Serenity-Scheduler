@@ -1,63 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Serenity Distributed Task Scheduler &amp; Multi-Server Simulator</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 1rem;
-      line-height: 1.5;
-    }
-    h1, h2, h3, h4 {
-      margin-top: 2rem;
-      margin-bottom: 1rem;
-    }
-    p {
-      margin-bottom: 1rem;
-    }
-    ul, ol {
-      margin-bottom: 1rem;
-      padding-left: 1.5rem;
-    }
-    .section {
-      margin-bottom: 2rem;
-    }
-    .subsection {
-      margin-top: 1rem;
-      margin-left: 1.5rem;
-    }
-    .indent {
-      margin-left: 2rem;
-    }
-    .tab-buttons {
-      margin-bottom: 1.5rem;
-    }
-    .tab-button {
-      cursor: pointer;
-      padding: 0.5rem 1rem;
-      border: 1px solid #ccc;
-      background: #f2f2f2;
-      margin-right: 4px;
-      outline: none;
-    }
-    .tabcontent {
-      display: none;
-    }
-    .tabcontent.active {
-      display: block;
-    }
-  </style>
-  <script>
-    function openTab(tabId) {
-      const allContent = document.getElementsByClassName("tabcontent");
-      for (let i = 0; i < allContent.length; i++) {
-        allContent[i].classList.remove("active");
+  <head>
+    <meta charset="UTF-8">
+    <title>Serenity Distributed Task Scheduler &amp; Multi-Server Simulator</title>
+  
+    <!-- ==== EXISTING STYLES ==== -->
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 1rem;
+        line-height: 1.5;
       }
-      document.getElementById(tabId).classList.add("active");
-    }
-  </script>
-</head>
+      h1, h2, h3, h4 {
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+      }
+      p {
+        margin-bottom: 1rem;
+      }
+      ul, ol {
+        margin-bottom: 1rem;
+        padding-left: 1.5rem;
+      }
+      .section {
+        margin-bottom: 2rem;
+      }
+      .subsection {
+        margin-top: 1rem;
+        margin-left: 1.5rem;
+      }
+      .indent {
+        margin-left: 2rem;
+      }
+      .tab-buttons {
+        margin-bottom: 1.5rem;
+      }
+      .tab-button {
+        cursor: pointer;
+        padding: 0.5rem 1rem;
+        border: 1px solid #ccc;
+        background: #f2f2f2;
+        margin-right: 4px;
+        outline: none;
+      }
+      .tabcontent {
+        display: none;
+      }
+      .tabcontent.active {
+        display: block;
+      }
+  
+      /* ==== PRISM + CUSTOM CODE-FRAME STYLING ==== */
+      /* Prism Tomorrow theme */
+      /* (You can alternatively keep this in a separate <link> if you prefer) */
+      pre[class*="language-"] {
+        background: #2d2d2d;
+        color: #f8f8f2;
+        padding: 1em;
+        border-radius: 0.5rem;
+        overflow-x: auto;
+        font-family: 'Fira Code', monospace;
+        font-size: 0.95rem;
+        line-height: 1.4;
+      }
+      .code-frame {
+        position: relative;
+        margin: 2rem 0;
+      }
+      .code-frame::before {
+        content: attr(data-title);
+        position: absolute;
+        top: -1.6em;
+        left: 0.5em;
+        font-size: 0.85rem;
+        color: #999;
+      }
+    </style>
+  
+    <!-- ==== PRISM CORE + JAVA LANGUAGE ==== -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-java.min.js"></script>
+  
+    <!-- ==== LINE NUMBERS PLUGIN ==== -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  
+    <!-- ==== EXISTING SCRIPT FOR TABS ==== -->
+    <script>
+      function openTab(tabId) {
+        const allContent = document.getElementsByClassName("tabcontent");
+        for (let i = 0; i < allContent.length; i++) {
+          allContent[i].classList.remove("active");
+        }
+        document.getElementById(tabId).classList.add("active");
+      }
+    </script>
+  </head>
 <body>
 
   <h1>Serenity Distributed Task Scheduler &amp; Multi-Server Simulator</h1>
@@ -188,22 +233,26 @@
 
       <img src="diagrams/load_balancing.png" alt="Introduction UML Diagram" style="max-width:100%; height:auto; margin-bottom:1rem;">
 
-      <p><em>Source code</em></p>
+      <details>
+        <summary>Show Java Implementation</summary>
+        <pre><code id="java-code" class="language-java"></code></pre>
+      </details>
       
-      <pre><code class="language-java">
-        <object
-        data="snippets/LoadBalancingAlgorithm.java"
-        type="text/plain"
-        style="display: block;
-                width: 80%;
-                height: 400px;
-                padding: 1em;
-                background: #f8f8f8;
-                border: 1px solid #ddd;
-                white-space: pre;
-                overflow: auto;">
-      </object>
-      </code></pre>
+      <script>
+        // assuming DijkstraAlgorithm.java is next to this file in your GitHub Pages site
+        fetch('snippets/LoadBalancingAlgorithm.java')
+          .then(res => {
+            if (!res.ok) throw new Error('Couldn’t load source: ' + res.status);
+            return res.text();
+          })
+          .then(text => {
+            const el = document.getElementById('java-code');
+            el.textContent = text;
+            // if using Prism.js:
+            // Prism.highlightElement(el);
+          })
+          .catch(err => console.error(err));
+      </script>
 
       <h4>Mechanism</h4>
       <ul>
@@ -228,64 +277,6 @@
       <p>There is a threshold time for each priority to stop the starvation (Lower priorities remain without execution because of the continuous execution of higher priorities). Priority scheduling can be used with load balancing and complete-fetch algorithms. At the startup of the service, threshold times need to be assigned.</p>
 
       <img src="diagrams/priority_based_scheduling.png" alt="Introduction UML Diagram" style="max-width:100%; height:auto; margin-bottom:1rem;">
-
-      <!-- <p><em>Source code</em></p>
-      <pre><code class="language-java">
-        <object
-        data="snippets/PriorityBasedScheduling.java"
-        type="text/plain"
-        style="display: block;
-                width: 80%;
-                height: 400px;
-                padding: 1em;
-                background: #f8f8f8;
-                border: 1px solid #ddd;
-                white-space: pre;
-                overflow: auto;">
-      </object>
-      </code></pre> -->
-
-      <!-- 1. Prism core + Java language -->
-<link
-rel="stylesheet"
-href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css"
-/>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-java.min.js"></script>
-
-<!-- 2. Line numbers plugin -->
-<link
-rel="stylesheet"
-href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.css"
-/>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
-
-<!-- 3. Custom styling to make the code block pop -->
-<style>
-pre[class*="language-"] {
-  background: #2d2d2d;
-  color: #f8f8f2;
-  padding: 1em;
-  border-radius: 0.5rem;
-  overflow-x: auto;
-  font-family: 'Fira Code', monospace;
-  font-size: 0.95rem;
-  line-height: 1.4;
-}
-/* optional: caption above the block */
-.code-frame {
-  position: relative;
-  margin: 2rem 0;
-}
-.code-frame::before {
-  content: attr(data-title);
-  position: absolute;
-  top: -1.6em;
-  left: 0.5em;
-  font-size: 0.85rem;
-  color: #999;
-}
-</style>
 
       <details>
         <summary>Source code</summary>
