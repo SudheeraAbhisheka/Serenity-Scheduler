@@ -97,17 +97,6 @@
       href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.css"
     />
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
-  
-    <!-- ==== EXISTING SCRIPT FOR TABS ==== -->
-    <!-- <script>
-      function openTab(tabId) {
-        const allContent = document.getElementsByClassName("tabcontent");
-        for (let i = 0; i < allContent.length; i++) {
-          allContent[i].classList.remove("active");
-        }
-        document.getElementById(tabId).classList.add("active");
-      }
-    </script> -->
 
   <script>
     function openTab(event, tabId) {
@@ -166,7 +155,38 @@
   <div id="tab1" class="tabcontent active">
     <div class="section">
       <h2>Introduction</h2>
-      <!-- New section for YouTube links -->
+
+      <ul>
+        <li>
+          <a href="#complete-fetch"
+              onclick="openTab(event, 'tab2')">
+            Jump to the Complete-and-then-fetch alogrithm Source Code
+          </a>
+        </li>
+
+        <li>
+          <a href="#load-balancing"
+            onclick="openTab(event, 'tab2')">
+            Jump to the Load-balancing alogrithm Source Code
+          </a>   
+        </li>
+
+        <li>
+          <a href="#priority-scheduling"
+            onclick="openTab(event, 'tab2')">
+            Jump to the Priority-scheduling alogrithm Source Code
+          </a>   
+        </li>
+
+        <li>
+          <a href="#server-simulator"
+            onclick="openTab(event, 'tab3')">
+            Jump to the Heartbeat-mechanism and Server-simulator Source Code
+          </a>   
+        </li>
+      </ul>
+
+
       <h3>Installation &amp; Intro Videos</h3>
       <ul style="list-style: none; padding: 0; margin: 0; display: flex; gap: 1em;">
         <li>
